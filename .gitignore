@@ -1,0 +1,10 @@
+﻿node_modules/
+moonapp.sqlite
+moonapp.sqlite-wal
+moonapp.sqlite-shm
+public/uploads/*
+!public/uploads/.gitkeep
+.env
+npm-debug.log*
+.DS_Store
+Thumbs.db

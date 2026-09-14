@@ -1,0 +1,26 @@
+{
+  "name": "moonapp",
+  "version": "1.0.0",
+  "description": "WhatsApp-like Dark Mode Real-Time Web Chat App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "chat",
+    "whatsapp",
+    "realtime",
+    "socketio",
+    "moonapp"
+  ],
+  "author": "MoonApp",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7"
+  }
+}
