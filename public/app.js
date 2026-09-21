@@ -420,7 +420,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load Rooms from Server
   function fetchRooms() {
     if (!currentUser) return;
-    socket.emit('get_rooms', { showHidden: showLocked }, (res) => {
+    const isArchived = currentFilter === 'archived';
+    socket.emit('get_rooms', { showHidden: isArchived || showLocked }, (res) => {
       if (res && res.rooms) {
         rooms = res.rooms;
         renderChatList();
@@ -449,6 +450,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtered = rooms.filter((r) => {
       if (currentFilter === 'direct' && r.type !== 'direct') return false;
       if (currentFilter === 'group' && r.type !== 'group') return false;
+      if (currentFilter === 'archived' && r.is_hidden !== 1) return false;
+      if (currentFilter !== 'archived' && !showLocked && r.is_hidden === 1) return false;
       if (query) {
         const name = (r.display_name || r.name || '').toLowerCase();
         const lastMsg = (r.last_message_content || '').toLowerCase();
@@ -470,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filtered.length === 0) {
       chatList.innerHTML = `
         <div class="empty-list-msg">
-          <p>Heç bir söhbət tapılmadı</p>
+          <p>${currentFilter === 'archived' ? 'Arxivlənmiş söhbət yoxdur' : 'Heç bir söhbət tapılmadı'}</p>
         </div>`;
       return;
     }
@@ -537,13 +540,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
           item.classList.add('dropdown-active');
 
+          const isArchivedView = currentFilter === 'archived' || room.is_hidden === 1;
           const dropdown = document.createElement('div');
           dropdown.className = 'item-context-dropdown';
           dropdown.innerHTML = `
-            <button class="item-context-option" data-action="archive">
+            <button class="item-context-option" data-action="${isArchivedView ? 'unarchive' : 'archive'}">
               <div class="item-context-left">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM6.24 5h11.52l.83 1H5.42l.82-1zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5z"/></svg>
-                <span>Söhbəti arxivləşdirin</span>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM6.24 5h11.52l.83 1H5.42l.82-1z${isArchivedView ? 'M12 9.5l5.5 5.5H14v2h-4v-2H6.5L12 9.5z' : 'M12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5z'}"/></svg>
+                <span>${isArchivedView ? 'Söhbəti arxivdən çıxarın' : 'Söhbəti arxivləşdirin'}</span>
               </div>
             </button>
             <button class="item-context-option" data-action="mute">
@@ -600,21 +604,40 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
           `;
 
-          // Action 1: Archive
-          dropdown.querySelector('[data-action="archive"]').addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            dropdown.remove();
-            item.classList.remove('dropdown-active');
-            socket.emit('hide_room', { roomId: room.id }, () => {
-              showToast('Söhbət arxivləşdirildi');
-              if (currentRoom && currentRoom.id === room.id) {
-                currentRoom = null;
-                activeChatWrapper.style.display = 'none';
-                emptyChatState.style.display = 'flex';
-              }
-              fetchRooms();
+          // Action 1: Archive or Unarchive
+          const unarchiveBtn = dropdown.querySelector('[data-action="unarchive"]');
+          if (unarchiveBtn) {
+            unarchiveBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              dropdown.remove();
+              item.classList.remove('dropdown-active');
+              socket.emit('unhide_room', { roomId: room.id }, () => {
+                showToast('Söhbət arxivdən çıxarıldı');
+                fetchRooms();
+              });
             });
-          });
+          }
+
+          const archiveBtn = dropdown.querySelector('[data-action="archive"]');
+          if (archiveBtn) {
+            archiveBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              dropdown.remove();
+              item.classList.remove('dropdown-active');
+              socket.emit('hide_room', { roomId: room.id }, () => {
+                showToast('Söhbət arxivləşdirildi');
+                if (currentRoom && currentRoom.id === room.id) {
+                  currentRoom = null;
+                  activeChatWrapper.style.display = 'none';
+                  emptyChatState.style.display = 'flex';
+                  if (window.innerWidth <= 768) {
+                    appLayout.classList.remove('chat-open');
+                  }
+                }
+                fetchRooms();
+              });
+            });
+          }
 
           // Action 2: Mute
           dropdown.querySelector('[data-action="mute"]').addEventListener('click', (ev) => {
@@ -739,6 +762,9 @@ document.addEventListener('DOMContentLoaded', () => {
                   currentRoom = null;
                   activeChatWrapper.style.display = 'none';
                   emptyChatState.style.display = 'flex';
+                  if (window.innerWidth <= 768) {
+                    appLayout.classList.remove('chat-open');
+                  }
                 }
                 fetchRooms();
               });
@@ -758,10 +784,6 @@ document.addEventListener('DOMContentLoaded', () => {
           setStoredList('moonapp_unread_overrides', uList.filter(id => id !== room.id));
         }
         openRoom(room);
-        // Mobile view switcher
-        if (window.innerWidth <= 768) {
-          appLayout.classList.add('chat-open');
-        }
       });
 
       chatList.appendChild(item);
@@ -776,6 +798,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     emptyChatState.style.display = 'none';
     activeChatWrapper.style.display = 'flex';
+
+    // Mobile view switcher: IMMEDIATELY transition to chat pane
+    if (window.innerWidth <= 768) {
+      appLayout.classList.add('chat-open');
+    }
 
     // Clear and load messages
     messagesFlow.innerHTML = `
@@ -795,7 +822,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderChatList();
     closeReplyOrEditBanner();
     updateSendMicButtonVisibility();
-    messageTextInput.focus();
+    setTimeout(() => {
+      messageTextInput?.focus();
+    }, 120);
   }
 
   // Update Main Chat Header
@@ -831,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
       filterPills.forEach((p) => p.classList.remove('active'));
       pill.classList.add('active');
       currentFilter = pill.dataset.filter;
-      renderChatList();
+      fetchRooms();
     });
   });
 
@@ -1340,10 +1369,14 @@ document.addEventListener('DOMContentLoaded', () => {
     chatOptionsPopup.style.display = 'none';
     if (!currentRoom) return;
     socket.emit('hide_room', { roomId: currentRoom.id }, () => {
+      showToast('Söhbət arxivləşdirildi');
       fetchRooms();
       currentRoom = null;
       activeChatWrapper.style.display = 'none';
       emptyChatState.style.display = 'flex';
+      if (window.innerWidth <= 768) {
+        appLayout.classList.remove('chat-open');
+      }
     });
   });
 
@@ -1353,6 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirm('Bu söhbətdəki bütün mesajları təmizləmək istəyirsiniz?')) {
       socket.emit('clear_chat', { roomId: currentRoom.id }, () => {
         messagesFlow.innerHTML = '';
+        showToast('Mesajlar təmizləndi');
       });
     }
   });
@@ -1362,10 +1396,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!currentRoom) return;
     if (confirm('Bu söhbəti tamamilə silmək istəyirsiniz?')) {
       socket.emit('delete_room', { roomId: currentRoom.id }, () => {
+        showToast('Söhbət silindi');
         fetchRooms();
         currentRoom = null;
         activeChatWrapper.style.display = 'none';
         emptyChatState.style.display = 'flex';
+        if (window.innerWidth <= 768) {
+          appLayout.classList.remove('chat-open');
+        }
       });
     }
   });
@@ -1401,6 +1439,25 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('update_room_preview', () => {
+    fetchRooms();
+  });
+
+  socket.on('user_deleted', ({ userId }) => {
+    if (currentUser && currentUser.id === userId) {
+      alert('Hesabınız admin tərəfindən silindi.');
+      localStorage.removeItem('moonapp_user');
+      window.location.reload();
+      return;
+    }
+    if (currentRoom && currentRoom.other_user_id === userId) {
+      currentRoom = null;
+      activeChatWrapper.style.display = 'none';
+      emptyChatState.style.display = 'flex';
+      if (window.innerWidth <= 768) {
+        appLayout.classList.remove('chat-open');
+      }
+      showToast('Bu istifadəçi silindi');
+    }
     fetchRooms();
   });
 
@@ -1557,8 +1614,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       row.addEventListener('click', () => {
         newChatModal.style.display = 'none';
+        if (window.innerWidth <= 768) {
+          appLayout.classList.add('chat-open');
+        }
         socket.emit('open_direct_chat', { targetUserId: u.id }, (res) => {
-          if (res && res.success) {
+          if (res && res.success && res.room) {
             fetchRooms();
             openRoom(res.room);
           }

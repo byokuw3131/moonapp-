@@ -117,6 +117,30 @@ async function initDatabase() {
   try { await run(`ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN pin_code TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0;`); } catch(e){}
+  try { await run(`ALTER TABLE rooms ADD COLUMN user1_id TEXT DEFAULT NULL;`); } catch(e){}
+  try { await run(`ALTER TABLE rooms ADD COLUMN user2_id TEXT DEFAULT NULL;`); } catch(e){}
+
+  // Auto-repair any direct rooms so both users are always mapped and in room_members
+  try {
+    const directRooms = await all(`SELECT id, user1_id, user2_id FROM rooms WHERE type = 'direct'`);
+    const allUsers = await all(`SELECT id FROM users`);
+    for (const r of directRooms) {
+      let u1 = r.user1_id;
+      let u2 = r.user2_id;
+      if (!u1 || !u2) {
+        const matched = allUsers.filter(u => r.id.includes(u.id));
+        if (matched.length >= 2) {
+          u1 = matched[0].id;
+          u2 = matched[1].id;
+          await run(`UPDATE rooms SET user1_id = ?, user2_id = ? WHERE id = ?`, [u1, u2, r.id]);
+        }
+      }
+      if (u1) await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [r.id, u1]);
+      if (u2) await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [r.id, u2]);
+    }
+  } catch(e) {
+    console.error('Room repair error:', e);
+  }
 
   // Settings table for customization
   await run(`
@@ -301,23 +325,22 @@ async function getOrCreateDirectRoom(userAId, userBId) {
   const roomId = `dm_${uA}_${uB}`;
 
   const existing = await get('SELECT * FROM rooms WHERE id = ?', [roomId]);
-  if (!existing) {
-    const userA = await getUser(userAId);
-    const userB = await getUser(userBId);
+  const userA = await getUser(userAId);
+  const userB = await getUser(userBId);
 
+  if (!existing) {
     await run(
-      `INSERT INTO rooms (id, name, type, avatar, description)
-       VALUES (?, ?, 'direct', ?, ?)`,
+      `INSERT INTO rooms (id, name, type, avatar, description, user1_id, user2_id)
+       VALUES (?, ?, 'direct', ?, ?, ?, ?)`,
       [
         roomId,
-        `${userA?.nickname || 'İstifadəçi'} & ${userB?.nickname || 'İstifadəçi'}`,
+        `${userA?.nickname || userA?.username || 'İstifadəçi'} & ${userB?.nickname || userB?.username || 'İstifadəçi'}`,
         '💬',
-        'Şəxsi Söhbət'
+        'Şəxsi Söhbət',
+        uA,
+        uB
       ]
     );
-
-    await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [roomId, userAId]);
-    await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [roomId, userBId]);
 
     // If one of them is MoonBot, add welcoming first message
     if (userAId === 'moonbot' || userBId === 'moonbot') {
@@ -330,14 +353,40 @@ async function getOrCreateDirectRoom(userAId, userBId) {
         [
           `msg_welcome_${roomId}`,
           roomId,
-          `Salam ${targetUser?.nickname || ''}! 🌙 Mən MoonBot. MoonApp-a xoş gəlmisiniz! Sistemimizi test etmək üçün mənə istənilən mesajı yazın, səsli mesaj göndərin və ya şəkil atın!`,
+          `Salam ${targetUser?.nickname || targetUser?.username || ''}! 🌙 Mən MoonBot. MoonApp-a xoş gəlmisiniz!`,
           Date.now()
         ]
       );
     }
+  } else {
+    if (!existing.user1_id || !existing.user2_id) {
+      await run(`UPDATE rooms SET user1_id = ?, user2_id = ? WHERE id = ?`, [uA, uB, roomId]);
+    }
   }
 
-  return await get('SELECT * FROM rooms WHERE id = ?', [roomId]);
+  // Always ensure BOTH users are active members in room_members
+  await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [roomId, userAId]);
+  await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [roomId, userBId]);
+
+  // Unhide the room for the requesting user
+  await unhideRoom(userAId, roomId);
+
+  const targetUser = userB;
+  return {
+    id: roomId,
+    name: targetUser ? (targetUser.nickname || targetUser.username) : 'İstifadəçi',
+    type: 'direct',
+    avatar: targetUser ? (targetUser.avatar || '🌙') : '🌙',
+    display_name: targetUser ? (targetUser.nickname || targetUser.username) : 'İstifadəçi',
+    display_avatar: targetUser ? (targetUser.avatar || '🌙') : '🌙',
+    other_user_id: userBId,
+    other_user_online: targetUser ? (targetUser.online || 0) : 0,
+    other_user_verified: targetUser ? (targetUser.is_verified || 0) : 0,
+    other_user_last_seen: targetUser ? targetUser.last_seen : null,
+    unread_count: 0,
+    is_hidden: 0,
+    created_at: existing ? existing.created_at : new Date().toISOString()
+  };
 }
 
 // Get user rooms with last message and hidden state
@@ -352,7 +401,7 @@ async function getUserRooms(userId, showHidden = false) {
       r.type,
       r.created_at,
       CASE 
-        WHEN r.type = 'direct' THEN COALESCE(other_u.nickname, 'İstifadəçi')
+        WHEN r.type = 'direct' THEN COALESCE(other_u.nickname, other_u.username, r.name, 'İstifadəçi')
         ELSE r.name
       END AS display_name,
       CASE 
@@ -365,7 +414,8 @@ async function getUserRooms(userId, showHidden = false) {
         ELSE NULL
       END AS other_user_online,
       other_u.id AS other_user_id,
-      other_u.is_verified AS other_user_verified,
+      COALESCE(other_u.is_verified, 0) AS other_user_verified,
+      other_u.last_seen AS other_user_last_seen,
       (
         SELECT content FROM messages 
         WHERE room_id = r.id 
@@ -397,14 +447,23 @@ async function getUserRooms(userId, showHidden = false) {
     FROM rooms r
     JOIN room_members m ON r.id = m.room_id
     LEFT JOIN room_members other_m ON r.id = other_m.room_id AND other_m.user_id != ? AND r.type = 'direct'
-    LEFT JOIN users other_u ON other_m.user_id = other_u.id
+    LEFT JOIN users other_u ON other_u.id = (
+      CASE 
+        WHEN r.type = 'direct' THEN 
+          COALESCE(
+            CASE WHEN r.user1_id = ? THEN r.user2_id WHEN r.user2_id = ? THEN r.user1_id ELSE NULL END,
+            other_m.user_id
+          )
+        ELSE NULL 
+      END
+    )
     WHERE m.user_id = ?
     ${hiddenCondition}
     GROUP BY r.id
     ORDER BY COALESCE(last_message_time, 0) DESC, r.created_at DESC
   `;
 
-  return await all(sql, [userId, userId, userId, userId, userId]);
+  return await all(sql, [userId, userId, userId, userId, userId, userId, userId]);
 }
 
 // Delete a single message
@@ -433,25 +492,32 @@ async function unhideRoom(userId, roomId) {
   return true;
 }
 
-// Delete room for user
+// Delete room for user (clears messages & hides room, preserving integrity)
 async function deleteRoomForUser(userId, roomId) {
   if (roomId === 'moon_lounge') {
     await hideRoom(userId, roomId);
     return true;
   }
-  await run('DELETE FROM room_members WHERE room_id = ? AND user_id = ?', [roomId, userId]);
-  await run('DELETE FROM hidden_rooms WHERE user_id = ? AND room_id = ?', [userId, roomId]);
-
-  const remaining = await get('SELECT COUNT(*) AS count FROM room_members WHERE room_id = ?', [roomId]);
-  if (remaining && remaining.count === 0) {
-    await run('DELETE FROM messages WHERE room_id = ?', [roomId]);
-    await run('DELETE FROM rooms WHERE id = ?', [roomId]);
-  }
+  await run('DELETE FROM messages WHERE room_id = ?', [roomId]);
+  await hideRoom(userId, roomId);
   return true;
 }
 
 // Save message
 async function saveMessage(msg) {
+  // If direct room, guarantee both users are members and unhidden
+  if (msg.roomId && msg.roomId.startsWith('dm_')) {
+    const parts = msg.roomId.replace('dm_', '').split('_');
+    if (parts.length >= 2) {
+      const u1 = parts[0];
+      const u2 = parts.slice(1).join('_');
+      await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [msg.roomId, u1]);
+      await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`, [msg.roomId, u2]);
+      await unhideRoom(u1, msg.roomId);
+      await unhideRoom(u2, msg.roomId);
+    }
+  }
+
   await run(
     `INSERT INTO messages (
       id, room_id, sender_id, sender_name, sender_avatar, 

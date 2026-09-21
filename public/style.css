@@ -170,15 +170,23 @@ html, body {
   padding: 4px 12px 8px 12px;
   background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-pills-bar::-webkit-scrollbar {
+  display: none;
 }
 .filter-pill {
   background: var(--bg-header);
   border: none;
   border-radius: 16px;
-  padding: 4px 12px;
+  padding: 4px 14px;
   font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
 .filter-pill.active {
