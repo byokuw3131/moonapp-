@@ -179,12 +179,24 @@ async function initDatabase() {
 }
 
 // User methods
-async function upsertUser({ id, username, nickname, avatar, bio }) {
+async function upsertUser({ id, username, nickname, avatar, bio, pin_code }) {
   id = id || `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const existing = await get('SELECT * FROM users WHERE username = ?', [username]);
   const now = Date.now();
 
   if (existing) {
+    // If user has a pin_code set in database, verify it!
+    if (existing.pin_code) {
+      if (!pin_code || String(pin_code).trim() !== String(existing.pin_code).trim()) {
+        throw new Error('PİN kod yalnışdır! Zəhmət olmasa hesabınızın düzgün 4 rəqəmli PİN kodunu daxil edin.');
+      }
+    } else {
+      if (!pin_code || String(pin_code).trim().length < 4) {
+        throw new Error('Hesabınızı qorumaq üçün ən azı 4 rəqəmli PİN kod daxil edin.');
+      }
+      await run('UPDATE users SET pin_code = ? WHERE id = ?', [String(pin_code).trim(), existing.id]);
+    }
+
     await run(
       `UPDATE users 
        SET nickname = COALESCE(?, nickname),
@@ -202,10 +214,15 @@ async function upsertUser({ id, username, nickname, avatar, bio }) {
     );
     return await get('SELECT * FROM users WHERE id = ?', [existing.id]);
   } else {
+    // New user registration requires at least 4 digit PIN
+    if (!pin_code || String(pin_code).trim().length < 4) {
+      throw new Error('Yeni hesab qeydiyyatı üçün ən azı 4 rəqəmli təhlükəsizlik PİN kodu təyin etməlisiniz!');
+    }
+    const safePin = String(pin_code).trim();
     await run(
-      `INSERT INTO users (id, username, nickname, avatar, bio, online, last_seen)
-       VALUES (?, ?, ?, ?, ?, 1, ?)`,
-      [id, username, nickname || username, avatar || '🌙', bio || 'MoonApp istifadəçisi 🌙', now]
+      `INSERT INTO users (id, username, nickname, avatar, bio, pin_code, online, last_seen)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+      [id, username, nickname || username, avatar || '🌙', bio || 'MoonApp istifadəçisi 🌙', safePin, now]
     );
     await run(
       `INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES ('moon_lounge', ?)`,

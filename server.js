@@ -205,9 +205,9 @@ io.on('connection', (socket) => {
   // User Login or Auto-reconnect
   socket.on('auth_login', async (userData, callback) => {
     try {
-      let { id, username, nickname, avatar, bio } = userData;
+      let { id, username, nickname, avatar, bio, pin_code } = userData;
       if (!username) {
-        if (callback) callback({ error: 'Kullanıcı adı gereklidir.' });
+        if (callback) callback({ error: 'İstifadəçi adı vacibdir.' });
         return;
       }
 
@@ -215,7 +215,7 @@ io.on('connection', (socket) => {
       nickname = (nickname && nickname.trim()) || username;
       id = id || `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-      const user = await db.upsertUser({ id, username, nickname, avatar, bio });
+      const user = await db.upsertUser({ id, username, nickname, avatar, bio, pin_code });
 
       // Track socket
       socketToUser.set(socket.id, user.id);

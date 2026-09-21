@@ -346,14 +346,20 @@
     </div>
   </div>
 
-  <!-- SIMPLE LOGIN MODAL -->
+  <!-- SECURE LOGIN MODAL WITH USERNAME & PIN CODE -->
   <div class="modal-backdrop" id="loginBackdrop">
     <div class="login-card">
       <div class="login-moon-logo">🌙</div>
       <h2>MoonApp-a Xoş Gəlmisiniz</h2>
-      <p class="login-sub">Dərhal söhbətə başlamaq üçün istifadəçi adınızı daxil edin</p>
+      <p class="login-sub">Hesabınızın təhlükəsizliyi üçün istifadəçi adınızı və 4 rəqəmli PİN kodunuzu daxil edin</p>
       <form id="loginForm">
-        <input type="text" id="loginUsername" placeholder="İstifadəçi adınız (məs: orxan)" autocomplete="off" required>
+        <div class="login-input-wrap">
+          <input type="text" id="loginUsername" placeholder="İstifadəçi adınız (məs: orxan)" autocomplete="username" required>
+        </div>
+        <div class="login-input-wrap">
+          <input type="password" id="loginPin" placeholder="4 rəqəmli PİN Kod (məs: 1234)" maxlength="6" autocomplete="current-password" required>
+        </div>
+        <div class="login-hint">İlk dəfə daxil olursunuzsa, təyin etdiyiniz PİN kod sizin daimi təhlükəsizlik kodunuz olacaq.</div>
         <button type="submit" class="btn-primary login-btn">Daxil Ol</button>
       </form>
     </div>

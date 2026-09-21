@@ -353,62 +353,113 @@ html, body {
   display: none;
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: #8696a0;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 4px;
   border-radius: 50%;
-  font-size: 15px;
   line-height: 1;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, transform 0.15s;
   flex-shrink: 0;
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  z-index: 5;
 }
-.chat-list-item:hover .chat-item-actions-btn {
+.chat-list-item:hover .chat-item-actions-btn,
+.chat-list-item.dropdown-active .chat-item-actions-btn {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .chat-item-actions-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  color: #e9edef;
+  transform: scale(1.15);
 }
 
+.item-badges-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-right: 20px;
+}
+.badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* AUTHENTIC WHATSAPP WEB CONTEXT DROPDOWN MENU */
 .item-context-dropdown {
   position: absolute;
-  top: 42px;
-  right: 14px;
-  background: var(--bg-header);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-  z-index: 100;
-  padding: 6px 0;
-  min-width: 170px;
+  top: 40px;
+  right: 12px;
+  background: #233138;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  padding: 8px 0;
+  min-width: 240px;
   display: flex;
   flex-direction: column;
-  animation: fadeIn 0.15s ease;
+  animation: contextMenuPop 0.14s cubic-bezier(0.16, 1, 0.3, 1);
 }
+@keyframes contextMenuPop {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 .item-context-option {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  font-size: 13.5px;
-  color: var(--text-primary);
+  justify-content: space-between;
+  padding: 10px 18px;
+  font-size: 14.5px;
+  color: #d1d7db;
   background: transparent;
   border: none;
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: background 0.12s;
+  transition: background 0.1s, color 0.1s;
 }
 .item-context-option:hover {
+  background: #182229;
+  color: #ffffff;
+}
+.item-context-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.item-context-left svg {
+  color: #8696a0;
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+.item-context-option:hover .item-context-left svg {
+  color: #e9edef;
+}
+.item-context-arrow {
+  color: #8696a0;
+  font-size: 13px;
+  line-height: 1;
+}
+.item-context-divider {
+  height: 1px;
   background: rgba(255, 255, 255, 0.08);
+  margin: 6px 0;
 }
 .item-context-option.danger {
-  color: var(--danger);
+  color: #ea4335;
+}
+.item-context-option.danger .item-context-left svg {
+  color: #ea4335;
 }
 .item-context-option.danger:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(234, 67, 53, 0.12);
+  color: #ff5252;
 }
 
 /* MAIN CHAT AREA */
@@ -1433,16 +1484,31 @@ html, body {
   color: var(--text-secondary);
   margin-bottom: 24px;
 }
+.login-input-wrap {
+  width: 100%;
+  margin-bottom: 14px;
+}
 .login-card input {
   width: 100%;
   background: var(--bg-header);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px 14px;
+  border-radius: 10px;
+  padding: 13px 16px;
   color: var(--text-primary);
   font-size: 15px;
   outline: none;
-  margin-bottom: 16px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.login-card input:focus {
+  border-color: var(--wa-green);
+  box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.2);
+}
+.login-hint {
+  font-size: 12.5px;
+  color: #8696a0;
+  line-height: 1.4;
+  margin-bottom: 20px;
+  text-align: left;
 }
 .btn-primary {
   width: 100%;

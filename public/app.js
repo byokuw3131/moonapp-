@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginBackdrop = document.getElementById('loginBackdrop');
   const loginForm = document.getElementById('loginForm');
   const loginUsername = document.getElementById('loginUsername');
+  const loginPin = document.getElementById('loginPin');
 
   const newChatModal = document.getElementById('newChatModal');
   const btnCloseNewChat = document.getElementById('btnCloseNewChat');
@@ -305,13 +306,57 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(() => {});
 
-  // Authentication Flow
+  // Helper to load and save local lists (pinned, muted, favorites, unread overrides)
+  function getStoredList(key) {
+    try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) { return []; }
+  }
+  function setStoredList(key, arr) {
+    try { localStorage.setItem(key, JSON.stringify(arr)); } catch(e) {}
+  }
+  function showToast(msg) {
+    let t = document.getElementById('moonToast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'moonToast';
+      t.style.position = 'fixed';
+      t.style.bottom = '28px';
+      t.style.left = '50%';
+      t.style.transform = 'translateX(-50%)';
+      t.style.background = '#233138';
+      t.style.color = '#e9edef';
+      t.style.border = '1px solid rgba(255,255,255,0.1)';
+      t.style.padding = '10px 22px';
+      t.style.borderRadius = '24px';
+      t.style.fontSize = '14px';
+      t.style.fontWeight = '500';
+      t.style.boxShadow = '0 6px 20px rgba(0,0,0,0.6)';
+      t.style.zIndex = '9999';
+      t.style.transition = 'opacity 0.25s ease';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.display = 'block';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => {
+      t.style.opacity = '0';
+      setTimeout(() => { t.style.display = 'none'; }, 250);
+    }, 2400);
+  }
+
+  // Authentication Flow with 4-digit PIN Protection
   const storedUser = localStorage.getItem('moonapp_user');
   if (storedUser) {
     try {
       const parsed = JSON.parse(storedUser);
-      loginUser(parsed);
+      if (parsed && parsed.username && parsed.pin_code) {
+        loginUser(parsed);
+      } else {
+        localStorage.removeItem('moonapp_user');
+        loginBackdrop.style.display = 'flex';
+      }
     } catch (e) {
+      localStorage.removeItem('moonapp_user');
       loginBackdrop.style.display = 'flex';
     }
   } else {
@@ -321,15 +366,25 @@ document.addEventListener('DOMContentLoaded', () => {
   loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const username = loginUsername.value.trim().toLowerCase();
-    if (!username) return;
+    const pin = loginPin ? loginPin.value.trim() : '';
 
-    loginUser({ username, nickname: username });
+    if (!username) {
+      alert('Zəhmət olmasa istifadəçi adınızı daxil edin.');
+      return;
+    }
+    if (!pin || pin.length < 4) {
+      alert('Hesabınızı qorumaq üçün ən azı 4 rəqəmli PİN kod daxil edin!');
+      return;
+    }
+
+    loginUser({ username, nickname: username, pin_code: pin });
   });
 
   function loginUser(userData) {
     socket.emit('auth_login', userData, (res) => {
       if (res && res.success) {
         currentUser = res.user;
+        currentUser.pin_code = userData.pin_code;
         localStorage.setItem('moonapp_user', JSON.stringify(currentUser));
         loginBackdrop.style.display = 'none';
 
@@ -348,7 +403,9 @@ document.addEventListener('DOMContentLoaded', () => {
           if (lounge) openRoom(lounge);
         }
       } else {
-        alert(res?.error || 'Giriş uğursuz oldu');
+        localStorage.removeItem('moonapp_user');
+        loginBackdrop.style.display = 'flex';
+        alert(res?.error || 'Giriş uğursuz oldu. İstifadəçi adınızı və PİN kodunuzu yoxlayın.');
       }
     });
   }
@@ -379,10 +436,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Render Sidebar Chat List
+  // Render Sidebar Chat List with Pinned sorting & Authentic WhatsApp Dropdown Menu
   function renderChatList() {
     chatList.innerHTML = '';
     const query = chatSearchInput.value.trim().toLowerCase();
+
+    let pinnedRooms = getStoredList('moonapp_pinned_rooms');
+    let mutedRooms = getStoredList('moonapp_muted_rooms');
+    let favoriteRooms = getStoredList('moonapp_fav_rooms');
+    let unreadOverrides = getStoredList('moonapp_unread_overrides');
 
     const filtered = rooms.filter((r) => {
       if (currentFilter === 'direct' && r.type !== 'direct') return false;
@@ -393,6 +455,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return name.includes(query) || lastMsg.includes(query);
       }
       return true;
+    });
+
+    // Pinned chats appear first, then sorted by last message time
+    filtered.sort((a, b) => {
+      const aPinned = pinnedRooms.includes(a.id) ? 1 : 0;
+      const bPinned = pinnedRooms.includes(b.id) ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+      const aTime = a.last_message_time || 0;
+      const bTime = b.last_message_time || 0;
+      return bTime - aTime;
     });
 
     if (filtered.length === 0) {
@@ -410,6 +482,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const isDirect = room.type === 'direct';
       const isOnline = isDirect && room.other_user_online === 1;
+      const isPinned = pinnedRooms.includes(room.id);
+      const isMuted = mutedRooms.includes(room.id);
+      const isFav = favoriteRooms.includes(room.id);
+      const hasUnread = unreadOverrides.includes(room.id);
+      const unreadCount = hasUnread ? (room.unread_count || 1) : (room.unread_count || 0);
 
       // Last message preview text
       let previewText = room.last_message_content || 'Söhbətə başlayın...';
@@ -432,40 +509,104 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="item-bottom-row">
             <span class="item-preview">${escapeHtml(previewText)}</span>
-            ${room.unread_count > 0 ? `<span class="unread-badge">${room.unread_count}</span>` : ''}
-            <button class="chat-item-actions-btn" title="Seçimlər" data-room-id="${room.id}">⋮</button>
+            <div class="item-badges-group">
+              ${isMuted ? `<span class="badge-icon" title="Səssiz"><svg viewBox="0 0 24 24" width="14" height="14" fill="#8696a0"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></span>` : ''}
+              ${isFav ? `<span class="badge-icon" title="Sevimlilər"><svg viewBox="0 0 24 24" width="14" height="14" fill="#eab308"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></span>` : ''}
+              ${isPinned ? `<span class="badge-icon" title="Sancaqlanıb"><svg viewBox="0 0 24 24" width="14" height="14" fill="#8696a0"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg></span>` : ''}
+              ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount}</span>` : ''}
+            </div>
+            <button class="chat-item-actions-btn" title="Menyu" data-room-id="${room.id}">
+              <svg viewBox="0 0 19 20" width="18" height="18" fill="currentColor"><path d="m3.8 6.7 5.7 5.7 5.7-5.7 1.6 1.6-7.3 7.2-7.3-7.2 1.6-1.6z"/></svg>
+            </button>
           </div>
         </div>
       `;
 
       renderAvatar(room.display_avatar || room.avatar, item.querySelector(`#avatar_${room.id}`));
 
-      // 3-dots dropdown menu trigger
-      const dotsBtn = item.querySelector('.chat-item-actions-btn');
-      if (dotsBtn) {
-        dotsBtn.addEventListener('click', (e) => {
+      // WhatsApp Web Context Menu Trigger
+      const chevronBtn = item.querySelector('.chat-item-actions-btn');
+      if (chevronBtn) {
+        chevronBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          // Remove any open dropdowns
+          const alreadyOpen = item.querySelector('.item-context-dropdown');
           document.querySelectorAll('.item-context-dropdown').forEach(d => d.remove());
+          document.querySelectorAll('.chat-list-item.dropdown-active').forEach(i => i.classList.remove('dropdown-active'));
+
+          if (alreadyOpen) return;
+
+          item.classList.add('dropdown-active');
 
           const dropdown = document.createElement('div');
           dropdown.className = 'item-context-dropdown';
           dropdown.innerHTML = `
-            <button class="item-context-option" data-action="hide">
-              <span>🔒</span> <span>Gizlət</span>
+            <button class="item-context-option" data-action="archive">
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM6.24 5h11.52l.83 1H5.42l.82-1zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5z"/></svg>
+                <span>Söhbəti arxivləşdirin</span>
+              </div>
             </button>
+            <button class="item-context-option" data-action="mute">
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/></svg>
+                <span>${isMuted ? 'Səsi açın' : 'Bildirişləri səssiz edin'}</span>
+              </div>
+              <span class="item-context-arrow">›</span>
+            </button>
+            <button class="item-context-option" data-action="pin">
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                <span>${isPinned ? 'Söhbəti sancaqdan çıxarın' : 'Söhbəti sancaqlayın'}</span>
+              </div>
+            </button>
+            <button class="item-context-option" data-action="unread">
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
+                <span>${hasUnread ? 'Oxunmuş kimi işarələyin' : 'Oxunmamış kimi işarələyin'}</span>
+              </div>
+            </button>
+            <button class="item-context-option" data-action="favorite">
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>
+                <span>${isFav ? 'Sevimlilərdən çıxar' : 'Sevimlilərə əlavə et'}</span>
+              </div>
+            </button>
+            <button class="item-context-option" data-action="list">
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+                <span>Siyahıya əlavə edin</span>
+              </div>
+              <span class="item-context-arrow">›</span>
+            </button>
+            <div class="item-context-divider"></div>
+            ${isDirect ? `
+            <button class="item-context-option" data-action="block">
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
+                <span>Bloklayın</span>
+              </div>
+            </button>` : ''}
             <button class="item-context-option" data-action="clear">
-              <span>🧹</span> <span>Mesajları Təmizlə</span>
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg>
+                <span>Söhbəti təmizləyin</span>
+              </div>
             </button>
             <button class="item-context-option danger" data-action="delete">
-              <span>🗑️</span> <span>Söhbəti Sil</span>
+              <div class="item-context-left">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                <span>Söhbəti silin</span>
+              </div>
             </button>
           `;
 
-          dropdown.querySelector('[data-action="hide"]').addEventListener('click', (ev) => {
+          // Action 1: Archive
+          dropdown.querySelector('[data-action="archive"]').addEventListener('click', (ev) => {
             ev.stopPropagation();
             dropdown.remove();
+            item.classList.remove('dropdown-active');
             socket.emit('hide_room', { roomId: room.id }, () => {
+              showToast('Söhbət arxivləşdirildi');
               if (currentRoom && currentRoom.id === room.id) {
                 currentRoom = null;
                 activeChatWrapper.style.display = 'none';
@@ -475,11 +616,109 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           });
 
+          // Action 2: Mute
+          dropdown.querySelector('[data-action="mute"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            item.classList.remove('dropdown-active');
+            let mList = getStoredList('moonapp_muted_rooms');
+            if (mList.includes(room.id)) {
+              mList = mList.filter(id => id !== room.id);
+              showToast('Bildirişlər aktiv edildi');
+            } else {
+              mList.push(room.id);
+              showToast('Bildirişlər səssiz edildi');
+            }
+            setStoredList('moonapp_muted_rooms', mList);
+            renderChatList();
+          });
+
+          // Action 3: Pin
+          dropdown.querySelector('[data-action="pin"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            item.classList.remove('dropdown-active');
+            let pList = getStoredList('moonapp_pinned_rooms');
+            if (pList.includes(room.id)) {
+              pList = pList.filter(id => id !== room.id);
+              showToast('Söhbət sancaqdan çıxarıldı');
+            } else {
+              pList.push(room.id);
+              showToast('Söhbət yuxarı sancaqlanıldı');
+            }
+            setStoredList('moonapp_pinned_rooms', pList);
+            renderChatList();
+          });
+
+          // Action 4: Unread
+          dropdown.querySelector('[data-action="unread"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            item.classList.remove('dropdown-active');
+            let uList = getStoredList('moonapp_unread_overrides');
+            if (uList.includes(room.id)) {
+              uList = uList.filter(id => id !== room.id);
+            } else {
+              uList.push(room.id);
+            }
+            setStoredList('moonapp_unread_overrides', uList);
+            renderChatList();
+          });
+
+          // Action 5: Favorite
+          dropdown.querySelector('[data-action="favorite"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            item.classList.remove('dropdown-active');
+            let fList = getStoredList('moonapp_fav_rooms');
+            if (fList.includes(room.id)) {
+              fList = fList.filter(id => id !== room.id);
+              showToast('Sevimlilərdən çıxarıldı');
+            } else {
+              fList.push(room.id);
+              showToast('Sevimlilərə əlavə edildi');
+            }
+            setStoredList('moonapp_fav_rooms', fList);
+            renderChatList();
+          });
+
+          // Action 6: List
+          dropdown.querySelector('[data-action="list"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            item.classList.remove('dropdown-active');
+            showToast('Söhbət fərdi siyahıya əlavə edildi');
+          });
+
+          // Action 7: Block (if direct)
+          const blockBtn = dropdown.querySelector('[data-action="block"]');
+          if (blockBtn) {
+            blockBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              dropdown.remove();
+              item.classList.remove('dropdown-active');
+              if (confirm('Bu istifadəçini bloklamaq istəyirsiniz?')) {
+                socket.emit('hide_user', { targetUserId: room.other_user_id }, () => {
+                  showToast('İstifadəçi bloklandı');
+                  if (currentRoom && currentRoom.id === room.id) {
+                    currentRoom = null;
+                    activeChatWrapper.style.display = 'none';
+                    emptyChatState.style.display = 'flex';
+                  }
+                  fetchRooms();
+                });
+              }
+            });
+          }
+
+          // Action 8: Clear
           dropdown.querySelector('[data-action="clear"]').addEventListener('click', (ev) => {
             ev.stopPropagation();
             dropdown.remove();
-            if (confirm('Bu söhbətdəki bütün mesajları silmək istəyirsiniz?')) {
+            item.classList.remove('dropdown-active');
+            if (confirm('Bu söhbətdəki bütün mesajları təmizləmək istəyirsiniz?')) {
               socket.emit('clear_chat', { roomId: room.id }, () => {
+                showToast('Mesajlar təmizləndi');
                 if (currentRoom && currentRoom.id === room.id) {
                   messagesFlow.innerHTML = '';
                 }
@@ -488,11 +727,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           });
 
+          // Action 9: Delete
           dropdown.querySelector('[data-action="delete"]').addEventListener('click', (ev) => {
             ev.stopPropagation();
             dropdown.remove();
+            item.classList.remove('dropdown-active');
             if (confirm('Bu söhbəti sol siyahıdan tamamilə silmək istəyirsiniz?')) {
               socket.emit('delete_room', { roomId: room.id }, () => {
+                showToast('Söhbət silindi');
                 if (currentRoom && currentRoom.id === room.id) {
                   currentRoom = null;
                   activeChatWrapper.style.display = 'none';
@@ -509,6 +751,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       item.addEventListener('click', () => {
         document.querySelectorAll('.item-context-dropdown').forEach(d => d.remove());
+        document.querySelectorAll('.chat-list-item.dropdown-active').forEach(i => i.classList.remove('dropdown-active'));
+        // If unread override was active, remove it
+        let uList = getStoredList('moonapp_unread_overrides');
+        if (uList.includes(room.id)) {
+          setStoredList('moonapp_unread_overrides', uList.filter(id => id !== room.id));
+        }
         openRoom(room);
         // Mobile view switcher
         if (window.innerWidth <= 768) {
@@ -1124,17 +1372,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Socket Event Listeners for Reliable Real-time Delivery
   socket.on('new_message', (msg) => {
+    const isMuted = getStoredList('moonapp_muted_rooms').includes(msg.room_id);
     if (currentRoom && msg.room_id === currentRoom.id) {
       appendMessageBubble(msg);
       scrollToBottom();
       if (currentUser && msg.sender_id !== currentUser.id) {
         socket.emit('mark_read', { roomId: currentRoom.id });
-        MoonAudio.playReceivedSound();
+        if (!isMuted) MoonAudio.playReceivedSound();
       }
     } else {
       // Received message in another room
       if (currentUser && msg.sender_id !== currentUser.id) {
-        MoonAudio.playReceivedSound();
+        if (!isMuted) MoonAudio.playReceivedSound();
       }
       fetchRooms();
     }
