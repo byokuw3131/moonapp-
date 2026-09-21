@@ -345,6 +345,72 @@ html, body {
   flex-shrink: 0;
 }
 
+/* SIDEBAR CHAT ITEM HOVER / CONTEXT ACTIONS */
+.chat-list-item {
+  position: relative;
+}
+.chat-item-actions-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 50%;
+  font-size: 15px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.chat-list-item:hover .chat-item-actions-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-item-actions-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.item-context-dropdown {
+  position: absolute;
+  top: 42px;
+  right: 14px;
+  background: var(--bg-header);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  z-index: 100;
+  padding: 6px 0;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.15s ease;
+}
+.item-context-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.12s;
+}
+.item-context-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.item-context-option.danger {
+  color: var(--danger);
+}
+.item-context-option.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
 /* MAIN CHAT AREA */
 .main-chat {
   flex: 1;
@@ -1794,5 +1860,21 @@ html, body {
     padding: 16px 14px !important;
     gap: 14px !important;
   }
+
+  /* Show bubble quick actions on mobile tap / active */
+  .bubble-inner.show-actions .bubble-quick-actions,
+  .bubble-inner:active .bubble-quick-actions {
+    display: flex !important;
+  }
+  .bubble-quick-actions {
+    top: -30px !important;
+    padding: 3px 8px !important;
+    gap: 6px !important;
+  }
+  .action-mini-btn {
+    font-size: 15px !important;
+    padding: 4px 6px !important;
+  }
 }
+
 

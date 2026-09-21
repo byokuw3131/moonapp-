@@ -615,10 +615,26 @@ async function getAllSettings() {
 }
 
 async function deleteUser(userId) {
+  // Find all direct rooms where this user is or was a participant
+  const directRooms = await all(
+    `SELECT id FROM rooms WHERE type = 'direct' AND id LIKE ?`,
+    [`%${userId}%`]
+  );
+  for (const r of directRooms) {
+    await run('DELETE FROM messages WHERE room_id = ?', [r.id]);
+    await run('DELETE FROM room_members WHERE room_id = ?', [r.id]);
+    await run('DELETE FROM hidden_rooms WHERE room_id = ?', [r.id]);
+    await run('DELETE FROM rooms WHERE id = ?', [r.id]);
+  }
+
+  // Delete all messages sent by this user anywhere
   await run('DELETE FROM messages WHERE sender_id = ?', [userId]);
+  // Delete all room memberships for this user
   await run('DELETE FROM room_members WHERE user_id = ?', [userId]);
+  // Delete hidden/blocked associations
   await run('DELETE FROM hidden_users WHERE user_id = ? OR hidden_user_id = ?', [userId, userId]);
   await run('DELETE FROM hidden_rooms WHERE user_id = ?', [userId]);
+  // Finally delete user record
   await run('DELETE FROM users WHERE id = ?', [userId]);
   return true;
 }

@@ -124,7 +124,24 @@ app.post('/api/admin/user/delete', async (req, res) => {
   try {
     const { userId } = req.body;
     await db.deleteUser(userId);
+
+    // Disconnect any active sockets for this deleted user
+    if (userSockets.has(userId)) {
+      const sids = userSockets.get(userId);
+      for (const sid of sids) {
+        const s = io.sockets.sockets.get(sid);
+        if (s) {
+          s.emit('user_deleted', { userId });
+          s.disconnect(true);
+        }
+      }
+      userSockets.delete(userId);
+    }
+
+    // Broadcast to all other clients so rooms and user lists refresh immediately
     io.emit('user_deleted', { userId });
+    io.emit('room_added');
+    io.emit('update_room_preview');
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -475,8 +492,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Hide / Archive a chat
-  socket.on('hide_chat', async ({ roomId }, callback) => {
+  // Hide / Archive a chat (supports hide_chat and hide_room)
+  const handleHideChat = async ({ roomId }, callback) => {
     const userId = socketToUser.get(socket.id);
     if (!userId) return;
     try {
@@ -485,10 +502,12 @@ io.on('connection', (socket) => {
     } catch (e) {
       if (callback) callback({ error: e.message });
     }
-  });
+  };
+  socket.on('hide_chat', handleHideChat);
+  socket.on('hide_room', handleHideChat);
 
   // Unhide a chat
-  socket.on('unhide_chat', async ({ roomId }, callback) => {
+  const handleUnhideChat = async ({ roomId }, callback) => {
     const userId = socketToUser.get(socket.id);
     if (!userId) return;
     try {
@@ -497,20 +516,26 @@ io.on('connection', (socket) => {
     } catch (e) {
       if (callback) callback({ error: e.message });
     }
-  });
+  };
+  socket.on('unhide_chat', handleUnhideChat);
+  socket.on('unhide_room', handleUnhideChat);
 
-  // Delete chat entirely
-  socket.on('delete_chat', async ({ roomId }, callback) => {
+  // Delete chat entirely (supports delete_chat and delete_room)
+  const handleDeleteChat = async ({ roomId }, callback) => {
     const userId = socketToUser.get(socket.id);
     if (!userId) return;
     try {
       await db.deleteRoomForUser(userId, roomId);
       socket.leave(roomId);
+      // Notify other room members if needed
+      io.to(roomId).emit('update_room_preview', { roomId });
       if (callback) callback({ success: true });
     } catch (e) {
       if (callback) callback({ error: e.message });
     }
-  });
+  };
+  socket.on('delete_chat', handleDeleteChat);
+  socket.on('delete_room', handleDeleteChat);
 
   // Edit Message
   socket.on('edit_message', async ({ messageId, roomId, newContent }, callback) => {

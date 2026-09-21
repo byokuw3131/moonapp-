@@ -433,13 +433,82 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="item-bottom-row">
             <span class="item-preview">${escapeHtml(previewText)}</span>
             ${room.unread_count > 0 ? `<span class="unread-badge">${room.unread_count}</span>` : ''}
+            <button class="chat-item-actions-btn" title="Seçimlər" data-room-id="${room.id}">⋮</button>
           </div>
         </div>
       `;
 
       renderAvatar(room.display_avatar || room.avatar, item.querySelector(`#avatar_${room.id}`));
 
+      // 3-dots dropdown menu trigger
+      const dotsBtn = item.querySelector('.chat-item-actions-btn');
+      if (dotsBtn) {
+        dotsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Remove any open dropdowns
+          document.querySelectorAll('.item-context-dropdown').forEach(d => d.remove());
+
+          const dropdown = document.createElement('div');
+          dropdown.className = 'item-context-dropdown';
+          dropdown.innerHTML = `
+            <button class="item-context-option" data-action="hide">
+              <span>🔒</span> <span>Gizlət</span>
+            </button>
+            <button class="item-context-option" data-action="clear">
+              <span>🧹</span> <span>Mesajları Təmizlə</span>
+            </button>
+            <button class="item-context-option danger" data-action="delete">
+              <span>🗑️</span> <span>Söhbəti Sil</span>
+            </button>
+          `;
+
+          dropdown.querySelector('[data-action="hide"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            socket.emit('hide_room', { roomId: room.id }, () => {
+              if (currentRoom && currentRoom.id === room.id) {
+                currentRoom = null;
+                activeChatWrapper.style.display = 'none';
+                emptyChatState.style.display = 'flex';
+              }
+              fetchRooms();
+            });
+          });
+
+          dropdown.querySelector('[data-action="clear"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            if (confirm('Bu söhbətdəki bütün mesajları silmək istəyirsiniz?')) {
+              socket.emit('clear_chat', { roomId: room.id }, () => {
+                if (currentRoom && currentRoom.id === room.id) {
+                  messagesFlow.innerHTML = '';
+                }
+                fetchRooms();
+              });
+            }
+          });
+
+          dropdown.querySelector('[data-action="delete"]').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            if (confirm('Bu söhbəti sol siyahıdan tamamilə silmək istəyirsiniz?')) {
+              socket.emit('delete_room', { roomId: room.id }, () => {
+                if (currentRoom && currentRoom.id === room.id) {
+                  currentRoom = null;
+                  activeChatWrapper.style.display = 'none';
+                  emptyChatState.style.display = 'flex';
+                }
+                fetchRooms();
+              });
+            }
+          });
+
+          item.appendChild(dropdown);
+        });
+      }
+
       item.addEventListener('click', () => {
+        document.querySelectorAll('.item-context-dropdown').forEach(d => d.remove());
         openRoom(room);
         // Mobile view switcher
         if (window.innerWidth <= 768) {
@@ -661,6 +730,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (msg.type === 'voice' || msg.type === 'audio') {
       initVoiceMessagePlayer(bubble, msg.file_url);
+    }
+
+    // Toggle actions on mobile tap
+    const bubbleInner = bubble.querySelector('.bubble-inner');
+    if (bubbleInner) {
+      bubbleInner.addEventListener('click', (e) => {
+        if (e.target.closest('.bubble-quick-actions') || e.target.closest('.voice-play-btn') || e.target.closest('.msg-file-card')) return;
+        document.querySelectorAll('.bubble-inner.show-actions').forEach(b => {
+          if (b !== bubbleInner) b.classList.remove('show-actions');
+        });
+        bubbleInner.classList.toggle('show-actions');
+      });
     }
 
     messagesFlow.appendChild(bubble);
@@ -936,6 +1017,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!chatOptionsPopup.contains(e.target) && e.target !== btnChatMenuTrigger) {
       chatOptionsPopup.style.display = 'none';
     }
+    if (!e.target.closest('.chat-item-actions-btn') && !e.target.closest('.item-context-dropdown')) {
+      document.querySelectorAll('.item-context-dropdown').forEach(d => d.remove());
+    }
   });
 
   // Attachments Handling
@@ -1152,6 +1236,11 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('moonapp_user');
       window.location.reload();
     } else {
+      if (currentRoom && currentRoom.other_user_id === userId) {
+        currentRoom = null;
+        activeChatWrapper.style.display = 'none';
+        emptyChatState.style.display = 'flex';
+      }
       fetchRooms();
     }
   });
