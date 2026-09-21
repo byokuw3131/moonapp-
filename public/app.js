@@ -80,6 +80,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnToggleAttach = document.getElementById('btnToggleAttach');
   const messageTextInput = document.getElementById('messageTextInput');
   const btnSendMessage = document.getElementById('btnSendMessage');
+  const inputNormalMode = document.getElementById('inputNormalMode');
+  const btnStartVoiceRecord = document.getElementById('btnStartVoiceRecord');
+  const voiceRecordingBar = document.getElementById('voiceRecordingBar');
+  const btnCancelVoiceRecord = document.getElementById('btnCancelVoiceRecord');
+  const btnSendVoiceRecord = document.getElementById('btnSendVoiceRecord');
+  const voiceRecTimer = document.getElementById('voiceRecTimer');
   const emojiPalette = document.getElementById('emojiPalette');
   const emojiPaletteGrid = document.getElementById('emojiPaletteGrid');
   const attachmentsPopover = document.getElementById('attachmentsPopover');
@@ -197,6 +203,89 @@ document.addEventListener('DOMContentLoaded', () => {
       return `Dünən ${timeStr}`;
     }
     return `${date.toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit' })} ${timeStr}`;
+  }
+
+  // Helper: Format Duration (seconds to mm:ss)
+  function formatDuration(seconds) {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  // Active audio player instance tracker
+  let activeAudioPlayer = null;
+  let activePlayBtn = null;
+
+  function initVoiceMessagePlayer(bubble, fileUrl) {
+    const playBtn = bubble.querySelector('.voice-play-btn');
+    const progressBar = bubble.querySelector('.voice-track-progress');
+    const trackBar = bubble.querySelector('.voice-track-bar');
+    const currTimeEl = bubble.querySelector('.curr-time');
+    const totalTimeEl = bubble.querySelector('.total-time');
+    const playIcon = bubble.querySelector('.play-icon');
+    const pauseIcon = bubble.querySelector('.pause-icon');
+
+    if (!playBtn) return;
+
+    const audio = new Audio(fileUrl);
+
+    audio.addEventListener('loadedmetadata', () => {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        totalTimeEl.textContent = formatDuration(audio.duration);
+      }
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      if (audio.duration) {
+        const pct = (audio.currentTime / audio.duration) * 100;
+        progressBar.style.width = `${pct}%`;
+        currTimeEl.textContent = formatDuration(audio.currentTime);
+      }
+    });
+
+    audio.addEventListener('ended', () => {
+      playIcon.style.display = 'block';
+      pauseIcon.style.display = 'none';
+      progressBar.style.width = '0%';
+      currTimeEl.textContent = '0:00';
+      activeAudioPlayer = null;
+      activePlayBtn = null;
+    });
+
+    playBtn.addEventListener('click', () => {
+      if (activeAudioPlayer && activeAudioPlayer !== audio) {
+        activeAudioPlayer.pause();
+        if (activePlayBtn) {
+          activePlayBtn.querySelector('.play-icon').style.display = 'block';
+          activePlayBtn.querySelector('.pause-icon').style.display = 'none';
+        }
+      }
+
+      if (audio.paused) {
+        audio.play().then(() => {
+          playIcon.style.display = 'none';
+          pauseIcon.style.display = 'block';
+          activeAudioPlayer = audio;
+          activePlayBtn = playBtn;
+        }).catch(err => console.error('Audio play error:', err));
+      } else {
+        audio.pause();
+        playIcon.style.display = 'block';
+        pauseIcon.style.display = 'none';
+        activeAudioPlayer = null;
+        activePlayBtn = null;
+      }
+    });
+
+    if (trackBar) {
+      trackBar.addEventListener('click', (e) => {
+        if (!audio.duration) return;
+        const rect = trackBar.getBoundingClientRect();
+        const clickPos = (e.clientX - rect.left) / rect.width;
+        audio.currentTime = clickPos * audio.duration;
+      });
+    }
   }
 
   // Format Status Subtitle
@@ -325,6 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Last message preview text
       let previewText = room.last_message_content || 'Söhbətə başlayın...';
       if (room.last_message_type === 'image') previewText = '📷 Fotoşəkil';
+      else if (room.last_message_type === 'voice' || room.last_message_type === 'audio') previewText = '🎤 Səsli mesaj';
       else if (room.last_message_type === 'file') previewText = '📄 Fayl';
       else if (room.last_message_type === 'location') previewText = '📍 Məkan';
 
@@ -387,6 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
     room.unread_count = 0;
     renderChatList();
     closeReplyOrEditBanner();
+    updateSendMicButtonVisibility();
     messageTextInput.focus();
   }
 
@@ -470,6 +561,28 @@ document.addEventListener('DOMContentLoaded', () => {
       if (msg.content) {
         contentHtml += `<div class="msg-text-content">${escapeHtml(msg.content)}</div>`;
       }
+    } else if (msg.type === 'voice' || msg.type === 'audio') {
+      contentHtml = `
+        <div class="msg-voice-card" id="voice_card_${msg.id}">
+          <button class="voice-play-btn" data-audio-src="${msg.file_url}" title="Səsi dinlə">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path class="play-icon" d="M8 5v14l11-7z"/>
+              <path class="pause-icon" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" style="display: none;"/>
+            </svg>
+          </button>
+          <div class="voice-track-info">
+            <div class="voice-track-bar">
+              <div class="voice-track-progress"></div>
+            </div>
+            <div class="voice-track-time">
+              <span class="curr-time">0:00</span>
+              <span class="total-time">${formatDuration(msg.duration || 0)}</span>
+            </div>
+          </div>
+        </div>`;
+      if (msg.content) {
+        contentHtml += `<div class="msg-text-content" style="margin-top: 4px;">${escapeHtml(msg.content)}</div>`;
+      }
     } else if (msg.type === 'location') {
       contentHtml = `
         <a href="${msg.content}" target="_blank" class="msg-file-card location">
@@ -546,6 +659,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    if (msg.type === 'voice' || msg.type === 'audio') {
+      initVoiceMessagePlayer(bubble, msg.file_url);
+    }
+
     messagesFlow.appendChild(bubble);
   }
 
@@ -612,8 +729,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Typing Notification
+  // Typing Notification & Send/Mic Button Toggle
   messageTextInput.addEventListener('input', () => {
+    updateSendMicButtonVisibility();
     if (!currentRoom) return;
     if (!isTyping) {
       isTyping = true;
@@ -625,6 +743,17 @@ document.addEventListener('DOMContentLoaded', () => {
       socket.emit('stop_typing', { roomId: currentRoom.id });
     }, 1500);
   });
+
+  function updateSendMicButtonVisibility() {
+    const hasText = messageTextInput.value.trim().length > 0;
+    if (hasText) {
+      btnSendMessage.style.display = 'inline-flex';
+      btnStartVoiceRecord.style.display = 'none';
+    } else {
+      btnSendMessage.style.display = 'none';
+      btnStartVoiceRecord.style.display = 'inline-flex';
+    }
+  }
 
   function handleSendMessage() {
     const text = messageTextInput.value.trim();
@@ -640,6 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res && res.error) alert(res.error);
         closeReplyOrEditBanner();
         messageTextInput.value = '';
+        updateSendMicButtonVisibility();
       });
       return;
     }
@@ -663,9 +793,125 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     messageTextInput.value = '';
+    updateSendMicButtonVisibility();
     closeReplyOrEditBanner();
     emojiPalette.style.display = 'none';
   }
+
+  // --- VOICE RECORDING LOGIC ---
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordTimerInterval = null;
+  let recordSeconds = 0;
+  let voiceRecordingStream = null;
+
+  btnStartVoiceRecord.addEventListener('click', async () => {
+    if (!currentRoom) {
+      alert('Zəhmət olmasa əvvəlcə bir söhbət seçin.');
+      return;
+    }
+
+    try {
+      voiceRecordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      alert('Mikrofon icazəsi tələb olunur: ' + err.message);
+      return;
+    }
+
+    audioChunks = [];
+    // Determine supported mimeType
+    let mimeType = 'audio/webm';
+    if (!MediaRecorder.isTypeSupported('audio/webm')) {
+      if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+      else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+      else mimeType = '';
+    }
+
+    try {
+      mediaRecorder = mimeType ? new MediaRecorder(voiceRecordingStream, { mimeType }) : new MediaRecorder(voiceRecordingStream);
+    } catch (e) {
+      mediaRecorder = new MediaRecorder(voiceRecordingStream);
+    }
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        audioChunks.push(e.data);
+      }
+    };
+
+    // UI state switch
+    inputNormalMode.style.display = 'none';
+    voiceRecordingBar.style.display = 'flex';
+    recordSeconds = 0;
+    voiceRecTimer.textContent = '0:00';
+
+    recordTimerInterval = setInterval(() => {
+      recordSeconds++;
+      const m = Math.floor(recordSeconds / 60);
+      const s = Math.floor(recordSeconds % 60);
+      voiceRecTimer.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+    }, 1000);
+
+    mediaRecorder.start();
+  });
+
+  function stopVoiceRecordingCleanup() {
+    clearInterval(recordTimerInterval);
+    if (voiceRecordingStream) {
+      voiceRecordingStream.getTracks().forEach((track) => track.stop());
+      voiceRecordingStream = null;
+    }
+    inputNormalMode.style.display = 'flex';
+    voiceRecordingBar.style.display = 'none';
+    updateSendMicButtonVisibility();
+  }
+
+  btnCancelVoiceRecord.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.onstop = null;
+      mediaRecorder.stop();
+    }
+    stopVoiceRecordingCleanup();
+  });
+
+  btnSendVoiceRecord.addEventListener('click', () => {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+
+    const duration = recordSeconds;
+    mediaRecorder.onstop = () => {
+      stopVoiceRecordingCleanup();
+      if (audioChunks.length === 0) return;
+
+      const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, { type: audioBlob.type });
+
+      // Upload and send as voice message
+      const formData = new FormData();
+      formData.append('file', audioFile);
+
+      fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && currentRoom) {
+            socket.emit('send_message', {
+              roomId: currentRoom.id,
+              type: 'voice',
+              fileUrl: data.fileUrl,
+              fileName: 'Səsli mesaj',
+              fileSize: data.fileSize,
+              duration: duration,
+              content: ''
+            }, () => MoonAudio.playSentSound());
+          }
+        })
+        .catch((err) => alert('Səsli mesaj göndərilmədi: ' + err.message));
+    };
+
+    mediaRecorder.stop();
+  });
 
   // Toggle Emoji & Attachments Menus
   btnToggleEmoji.addEventListener('click', (e) => {

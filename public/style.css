@@ -793,7 +793,14 @@ html, body {
   max-height: 100px;
   resize: none;
 }
-.send-action-btn {
+.input-normal-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.voice-mic-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -807,12 +814,156 @@ html, body {
   flex-shrink: 0;
   transition: transform 0.1s, background 0.1s;
 }
-.send-action-btn:hover {
+.voice-mic-btn:hover {
   background: var(--wa-green-hover);
 }
-.send-action-btn:active {
+.voice-mic-btn:active {
   transform: scale(0.92);
 }
+
+/* ACTIVE VOICE RECORDING BAR */
+.voice-recording-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 6px;
+  animation: fadeIn 0.2s ease;
+}
+.rec-visualizer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  margin: 0 16px;
+}
+.rec-dot-pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: recPulse 1s infinite alternate;
+}
+@keyframes recPulse {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(1.2); opacity: 1; }
+}
+.rec-timer-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+}
+.rec-waves-anim {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+}
+.rec-waves-anim i {
+  display: inline-block;
+  width: 3px;
+  height: 10px;
+  background: var(--danger);
+  border-radius: 2px;
+  animation: waveBar 0.8s infinite ease-in-out alternate;
+}
+.rec-waves-anim i:nth-child(2) { animation-delay: 0.15s; }
+.rec-waves-anim i:nth-child(3) { animation-delay: 0.3s; }
+.rec-waves-anim i:nth-child(4) { animation-delay: 0.45s; }
+.rec-waves-anim i:nth-child(5) { animation-delay: 0.6s; }
+@keyframes waveBar {
+  0% { height: 4px; }
+  100% { height: 22px; }
+}
+
+.rec-action-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.12s, background 0.12s;
+}
+.rec-action-btn.cancel {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+.rec-action-btn.cancel:hover {
+  background: var(--danger);
+  color: #fff;
+}
+.rec-action-btn.send {
+  background: var(--wa-green);
+  color: #111b21;
+}
+.rec-action-btn.send:hover {
+  background: var(--wa-green-hover);
+}
+.rec-action-btn:active {
+  transform: scale(0.92);
+}
+
+/* VOICE AUDIO MESSAGE BUBBLE */
+.msg-voice-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px;
+  min-width: 240px;
+  max-width: 300px;
+}
+.voice-play-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--wa-green);
+  color: #111b21;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.12s, background 0.12s;
+}
+.voice-play-btn:hover {
+  background: var(--wa-green-hover);
+  transform: scale(1.05);
+}
+.voice-track-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 5px;
+}
+.voice-track-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+}
+.voice-track-progress {
+  height: 100%;
+  width: 0%;
+  background: var(--wa-green);
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+.voice-track-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+}
+
 
 /* REPLY EDIT BANNER */
 .reply-edit-banner {
@@ -1606,7 +1757,7 @@ html, body {
     line-height: 18px !important;
   }
 
-  .send-action-btn {
+  .send-action-btn, .voice-mic-btn {
     width: 42px !important;
     height: 42px !important;
     min-width: 42px !important;
@@ -1616,6 +1767,7 @@ html, body {
     justify-content: center !important;
     background: var(--wa-green) !important;
   }
+
 
   .messages-flow {
     padding: 10px 10px !important;
