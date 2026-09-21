@@ -116,6 +116,18 @@ async function initDatabase() {
   try { await run(`ALTER TABLE messages ADD COLUMN reply_to_sender TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN pin_code TEXT DEFAULT NULL;`); } catch(e){}
+  try { await run(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0;`); } catch(e){}
+
+  // Settings table for customization
+  await run(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+  await run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('app_title', 'WhatsApp Web - MoonApp')`);
+  await run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_password', 'admin123')`);
+  await run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('broadcast_banner', '')`);
 
   // Hidden / Archived rooms per user
   await run(`
@@ -237,7 +249,7 @@ async function getAllUsers(excludeId = null, showHidden = false) {
       ? `AND id IN (SELECT hidden_user_id FROM hidden_users WHERE user_id = ?)`
       : `AND id NOT IN (SELECT hidden_user_id FROM hidden_users WHERE user_id = ?)`;
     return await all(
-      `SELECT id, username, nickname, avatar, bio, online, last_seen,
+      `SELECT id, username, nickname, avatar, bio, online, last_seen, is_verified,
        (SELECT COUNT(*) FROM hidden_users WHERE user_id = ? AND hidden_user_id = users.id) AS is_hidden
        FROM users 
        WHERE id != ? ${hiddenCondition} 
@@ -245,7 +257,7 @@ async function getAllUsers(excludeId = null, showHidden = false) {
       [excludeId, excludeId, excludeId]
     );
   }
-  return await all('SELECT id, username, nickname, avatar, bio, online, last_seen, 0 AS is_hidden FROM users ORDER BY online DESC, nickname ASC');
+  return await all('SELECT id, username, nickname, avatar, bio, online, last_seen, is_verified, 0 AS is_hidden FROM users ORDER BY online DESC, nickname ASC');
 }
 
 async function hideUser(userId, targetUserId) {
@@ -336,6 +348,7 @@ async function getUserRooms(userId, showHidden = false) {
         ELSE NULL
       END AS other_user_online,
       other_u.id AS other_user_id,
+      other_u.is_verified AS other_user_verified,
       (
         SELECT content FROM messages 
         WHERE room_id = r.id 
@@ -448,7 +461,12 @@ async function saveMessage(msg) {
       0
     ]
   );
-  return await get('SELECT * FROM messages WHERE id = ?', [msg.id]);
+  const msgRow = await get('SELECT * FROM messages WHERE id = ?', [msg.id]);
+  const senderUser = await getUser(msg.senderId);
+  return {
+    ...msgRow,
+    sender_verified: senderUser ? (senderUser.is_verified || 0) : 0
+  };
 }
 
 // Edit message content
@@ -533,9 +551,13 @@ async function verifyUserPin(userId, inputPin) {
 }
 
 // Get messages for a room with reaction data
-async function getRoomMessages(roomId, limit = 100) {
+async function getRoomMessages(roomId, limit = 150) {
   const messages = await all(
-    `SELECT * FROM messages WHERE room_id = ? ORDER BY timestamp ASC LIMIT ?`,
+    `SELECT m.*, u.is_verified AS sender_verified 
+     FROM messages m 
+     LEFT JOIN users u ON m.sender_id = u.id 
+     WHERE m.room_id = ? 
+     ORDER BY m.timestamp ASC LIMIT ?`,
     [roomId, limit]
   );
 
@@ -569,6 +591,62 @@ async function getRoomMemberIds(roomId) {
   return members.map(m => m.user_id);
 }
 
+// ADMIN PANEL HELPERS
+async function setUserVerified(userId, isVerified) {
+  await run('UPDATE users SET is_verified = ? WHERE id = ?', [isVerified ? 1 : 0, userId]);
+  return await getUser(userId);
+}
+
+async function getSetting(key, defaultValue = '') {
+  const row = await get('SELECT value FROM settings WHERE key = ?', [key]);
+  return row ? row.value : defaultValue;
+}
+
+async function setSetting(key, value) {
+  await run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value)]);
+  return true;
+}
+
+async function getAllSettings() {
+  const rows = await all('SELECT key, value FROM settings');
+  const res = {};
+  rows.forEach(r => { res[r.key] = r.value; });
+  return res;
+}
+
+async function deleteUser(userId) {
+  await run('DELETE FROM messages WHERE sender_id = ?', [userId]);
+  await run('DELETE FROM room_members WHERE user_id = ?', [userId]);
+  await run('DELETE FROM hidden_users WHERE user_id = ? OR hidden_user_id = ?', [userId, userId]);
+  await run('DELETE FROM hidden_rooms WHERE user_id = ?', [userId]);
+  await run('DELETE FROM users WHERE id = ?', [userId]);
+  return true;
+}
+
+async function getAdminStats() {
+  const usersCount = await get('SELECT COUNT(*) AS total FROM users');
+  const messagesCount = await get('SELECT COUNT(*) AS total FROM messages');
+  const onlineCount = await get('SELECT COUNT(*) AS total FROM users WHERE online = 1');
+  const verifiedCount = await get('SELECT COUNT(*) AS total FROM users WHERE is_verified = 1');
+  const roomsCount = await get('SELECT COUNT(*) AS total FROM rooms');
+  return {
+    totalUsers: usersCount ? usersCount.total : 0,
+    totalMessages: messagesCount ? messagesCount.total : 0,
+    onlineUsers: onlineCount ? onlineCount.total : 0,
+    verifiedUsers: verifiedCount ? verifiedCount.total : 0,
+    totalRooms: roomsCount ? roomsCount.total : 0
+  };
+}
+
+async function getAllUsersForAdmin() {
+  return await all(`
+    SELECT u.id, u.username, u.nickname, u.avatar, u.online, u.last_seen, u.is_verified, u.created_at,
+           (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS message_count
+    FROM users u
+    ORDER BY u.created_at DESC
+  `);
+}
+
 module.exports = {
   initDatabase,
   upsertUser,
@@ -594,6 +672,13 @@ module.exports = {
   unhideRoom,
   deleteRoomForUser,
   hideUser,
-  unhideUser
+  unhideUser,
+  setUserVerified,
+  getSetting,
+  setSetting,
+  getAllSettings,
+  deleteUser,
+  getAdminStats,
+  getAllUsersForAdmin
 };
 

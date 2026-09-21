@@ -251,6 +251,23 @@ html, body {
   overflow: hidden;
   flex-shrink: 0;
 }
+
+/* VERIFIED TICK BADGE (MAVİ TİK) */
+.verified-tick-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin-left: 4px;
+  color: #00a884;
+  flex-shrink: 0;
+}
+.verified-tick-badge svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .avatar-box img {
   width: 100%;
   height: 100%;

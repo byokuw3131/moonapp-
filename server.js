@@ -64,6 +64,120 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString(), app: 'MoonApp' });
 });
 
+// Admin Dashboard page
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Public Settings endpoint
+app.get('/api/settings', async (req, res) => {
+  try {
+    const title = await db.getSetting('app_title', 'WhatsApp Web - MoonApp');
+    const banner = await db.getSetting('broadcast_banner', '');
+    res.json({ app_title: title, broadcast_banner: banner });
+  } catch (e) {
+    res.json({ app_title: 'WhatsApp Web - MoonApp', broadcast_banner: '' });
+  }
+});
+
+// ADMIN API ENDPOINTS
+app.post('/api/admin/login', async (req, res) => {
+  const { password } = req.body;
+  const currentPass = await db.getSetting('admin_password', 'admin123');
+  if (password === currentPass) {
+    res.json({ success: true, token: 'admin_' + Date.now() });
+  } else {
+    res.status(401).json({ error: 'Yalnış admin şifrəsi!' });
+  }
+});
+
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const stats = await db.getAdminStats();
+    res.json({ success: true, stats });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const users = await db.getAllUsersForAdmin();
+    res.json({ success: true, users });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/user/toggle-verified', async (req, res) => {
+  try {
+    const { userId, isVerified } = req.body;
+    const user = await db.setUserVerified(userId, isVerified);
+    io.emit('user_verified_updated', { userId, isVerified: user.is_verified });
+    res.json({ success: true, user });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/user/delete', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    await db.deleteUser(userId);
+    io.emit('user_deleted', { userId });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/broadcast', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Mesaj boş ola bilməz' });
+
+    const sysMsg = {
+      id: `msg_sys_${Date.now()}`,
+      roomId: 'moon_lounge',
+      senderId: 'system',
+      senderName: '📢 Sistem Rəsmi Elan',
+      senderAvatar: '⚡',
+      content: message,
+      type: 'text',
+      timestamp: Date.now()
+    };
+    const saved = await db.saveMessage(sysMsg);
+    saved.reactions = [];
+    io.to('moon_lounge').emit('new_message', saved);
+    io.emit('direct_message_notify', { roomId: 'moon_lounge', message: saved });
+    res.json({ success: true, message: saved });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/settings', async (req, res) => {
+  try {
+    const settings = await db.getAllSettings();
+    res.json({ success: true, settings });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/settings', async (req, res) => {
+  try {
+    const { app_title, admin_password, broadcast_banner } = req.body;
+    if (app_title !== undefined) await db.setSetting('app_title', app_title);
+    if (admin_password !== undefined && admin_password.trim()) await db.setSetting('admin_password', admin_password.trim());
+    if (broadcast_banner !== undefined) await db.setSetting('broadcast_banner', broadcast_banner);
+    io.emit('settings_updated', { app_title, broadcast_banner });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Socket user mappings
 const socketToUser = new Map(); // socket.id -> userId
 const userSockets = new Map();  // userId -> Set<socket.id>

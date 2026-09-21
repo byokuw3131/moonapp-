@@ -162,6 +162,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initEmojiPalette();
 
+  // Helper: Verified Tick Badge (Mavi Tik)
+  function getVerifiedBadgeHtml(isVerified) {
+    if (!isVerified) return '';
+    return `<span class="verified-tick-badge" title="Təsdiqlənmiş Hesab"><svg viewBox="0 0 24 24" fill="#00a884"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>`;
+  }
+
   // Helper: Avatar Element Rendering
   function renderAvatar(avatar, container) {
     if (!container) return;
@@ -200,6 +206,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return `son görünmə: ${formatTime(lastSeen)}`;
   }
 
+  // Fetch Public App Settings (e.g. customized title)
+  fetch('/api/settings')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.app_title) {
+        document.title = data.app_title;
+      }
+    })
+    .catch(() => {});
+
   // Authentication Flow
   const storedUser = localStorage.getItem('moonapp_user');
   if (storedUser) {
@@ -230,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update My Profile UI
         renderAvatar(currentUser.avatar, myAvatarDisplay);
-        myNicknameDisplay.textContent = currentUser.nickname || currentUser.username;
+        myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
         myUsernameDisplay.textContent = `@${currentUser.username}`;
 
         // Load rooms
@@ -321,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="item-body">
           <div class="item-top-row">
-            <span class="item-name">${escapeHtml(room.display_name || room.name)}</span>
+            <span class="item-name">${escapeHtml(room.display_name || room.name)}${isDirect ? getVerifiedBadgeHtml(room.other_user_verified) : ''}</span>
             <span class="item-time">${timeStr}</span>
           </div>
           <div class="item-bottom-row">
@@ -378,9 +394,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateChatHeader() {
     if (!currentRoom) return;
     renderAvatar(currentRoom.display_avatar || currentRoom.avatar, targetChatAvatar);
-    targetChatName.textContent = currentRoom.display_name || currentRoom.name;
+    
+    const isDirect = currentRoom.type === 'direct';
+    targetChatName.innerHTML = `${escapeHtml(currentRoom.display_name || currentRoom.name)}${isDirect ? getVerifiedBadgeHtml(currentRoom.other_user_verified) : ''}`;
 
-    if (currentRoom.type === 'direct') {
+    if (isDirect) {
       const isOnline = currentRoom.other_user_online === 1;
       targetChatStatus.textContent = formatStatus(isOnline, currentRoom.other_user_last_seen);
       targetChatStatus.className = `chat-status-text ${isOnline ? 'online' : ''}`;
@@ -481,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bubble Actions Button
     bubble.innerHTML = `
       <div class="bubble-inner">
-        ${!isMe && currentRoom && currentRoom.type === 'group' ? `<div class="bubble-sender-name">${escapeHtml(msg.sender_name)}</div>` : ''}
+        ${!isMe && currentRoom && currentRoom.type === 'group' ? `<div class="bubble-sender-name">${escapeHtml(msg.sender_name)}${getVerifiedBadgeHtml(msg.sender_verified)}</div>` : ''}
         ${replySnippetHtml}
         ${contentHtml}
         <div class="msg-meta-row">
@@ -856,6 +874,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  socket.on('user_verified_updated', ({ userId, isVerified }) => {
+    // Update current user if it's me
+    if (currentUser && currentUser.id === userId) {
+      currentUser.is_verified = isVerified;
+      localStorage.setItem('moonapp_user', JSON.stringify(currentUser));
+      myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
+    }
+    // Update rooms list
+    rooms.forEach((r) => {
+      if (r.other_user_id === userId) {
+        r.other_user_verified = isVerified;
+      }
+    });
+    renderChatList();
+    if (currentRoom && currentRoom.other_user_id === userId) {
+      currentRoom.other_user_verified = isVerified;
+      updateChatHeader();
+    }
+  });
+
+  socket.on('settings_updated', ({ app_title }) => {
+    if (app_title) {
+      document.title = app_title;
+    }
+  });
+
+  socket.on('user_deleted', ({ userId }) => {
+    if (currentUser && currentUser.id === userId) {
+      alert('Hesabınız sistem administratoru tərəfindən silinmişdir.');
+      localStorage.removeItem('moonapp_user');
+      window.location.reload();
+    } else {
+      fetchRooms();
+    }
+  });
+
   socket.on('user_typing', ({ roomId, nickname }) => {
     if (currentRoom && currentRoom.id === roomId) {
       targetChatStatus.textContent = `${nickname} yazır...`;
@@ -911,7 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="avatar-box" id="u_avatar_${u.id}"></div>
         </div>
         <div class="user-row-info">
-          <span class="u-name">${escapeHtml(u.nickname || u.username)}</span>
+          <span class="u-name">${escapeHtml(u.nickname || u.username)}${getVerifiedBadgeHtml(u.is_verified)}</span>
           <span class="u-sub">@${escapeHtml(u.username)} • ${u.online ? '<span style="color:#00a884;">🟢 onlayn</span>' : 'oflayn'}</span>
         </div>
       `;

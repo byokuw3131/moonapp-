@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoonApp Admin Paneli</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0b141a;
+      --bg-card: #111b21;
+      --bg-card-hover: #1b272f;
+      --border: #222d34;
+      --accent-green: #00a884;
+      --accent-blue: #0084ff;
+      --accent-red: #ea4335;
+      --text-main: #e9edef;
+      --text-muted: #8696a0;
+      --verified-color: #00a884;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Auth View */
+    .login-container {
+      display: flex;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 30px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+    .login-card .logo {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .login-card h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .login-card p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .input-field {
+      background: #182229;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-field:focus {
+      border-color: var(--accent-green);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--accent-green);
+      color: #111b21;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+    .btn:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: #202c33;
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: #2a3942;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 6px;
+      width: auto;
+    }
+    .btn-danger {
+      background: rgba(234, 67, 53, 0.15);
+      color: var(--accent-red);
+      border: 1px solid rgba(234, 67, 53, 0.3);
+    }
+    .btn-danger:hover {
+      background: var(--accent-red);
+      color: #fff;
+    }
+    .btn-verify {
+      background: rgba(0, 168, 132, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(0, 168, 132, 0.3);
+    }
+    .btn-verify.verified {
+      background: rgba(0, 132, 255, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(0, 132, 255, 0.3);
+    }
+
+    /* Dashboard Layout */
+    .dashboard {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 28px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .admin-brand .badge {
+      background: var(--accent-green);
+      color: #111b21;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .admin-brand h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .admin-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .admin-nav-actions a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .admin-nav-actions a:hover {
+      background: #202c33;
+      color: var(--text-main);
+    }
+
+    .admin-content {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Stat Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card .stat-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+    .stat-card .stat-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Section Boxes */
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-body {
+      padding: 20px;
+    }
+
+    /* Table Styles */
+    .table-responsive {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(255,255,255,0.01);
+    }
+    tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+    .user-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar-sm {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #202c33;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .avatar-sm img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .user-meta-name {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .user-meta-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Blue Checkmark SVG inline badge */
+    .mavi-tik-badge {
+      display: inline-flex;
+      align-items: center;
+      color: #00a884;
+    }
+    .mavi-tik-badge svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .badge-tag {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-online {
+      background: rgba(0, 168, 132, 0.15);
+      color: var(--accent-green);
+    }
+    .badge-offline {
+      background: rgba(134, 150, 160, 0.15);
+      color: var(--text-muted);
+    }
+    .actions-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 768px) {
+      .grid-2col {
+        grid-template-columns: 1fr;
+      }
+      .admin-header {
+        padding: 12px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH FORM -->
+  <div class="login-container" id="authView">
+    <div class="login-card">
+      <div class="logo">👑</div>
+      <h2>MoonApp İdarəetmə Paneli</h2>
+      <p>Daxil olmaq üçün admin şifrəsini daxil edin</p>
+      <form id="adminLoginForm">
+        <div class="form-group">
+          <label for="adminPassInput">Admin Şifrəsi</label>
+          <input type="password" id="adminPassInput" class="input-field" placeholder="Şifrə (default: admin123)" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn" id="btnLoginSubmit">Daxil Ol</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard" id="dashboardView">
+    <header class="admin-header">
+      <div class="admin-brand">
+        <span class="badge">Admin</span>
+        <h1>MoonApp Dashboard</h1>
+      </div>
+      <div class="admin-nav-actions">
+        <a href="/" target="_blank">🌐 MoonApp-ı Aç</a>
+        <button class="btn btn-secondary btn-sm" id="btnAdminLogout">Çıxış</button>
+      </div>
+    </header>
+
+    <div class="admin-content">
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-title">Ümumi İstifadəçilər</div>
+          <div class="stat-value" id="statUsers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🟢</div>
+          <div class="stat-title">Onlayn İstifadəçilər</div>
+          <div class="stat-value" id="statOnline">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💬</div>
+          <div class="stat-title">Ümumi Mesajlar</div>
+          <div class="stat-value" id="statMessages">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💎</div>
+          <div class="stat-title">Mavi Tikli Hesablar</div>
+          <div class="stat-value" id="statVerified">0</div>
+        </div>
+      </div>
+
+      <!-- USERS MANAGEMENT TABLE -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>👥 İstifadəçi İdarəetməsi (Mavi Tik & Silmə)</h3>
+          <button class="btn btn-secondary btn-sm" id="btnRefreshUsers">🔄 Yenilə</button>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>İstifadəçi</th>
+                <th>Status</th>
+                <th>Mavi Tik</th>
+                <th>Son Görülmə</th>
+                <th>Əməliyyatlar</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">Yüklənir...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2-COLUMN SETTINGS & BROADCAST -->
+      <div class="grid-2col">
+        <!-- GLOBAL BROADCAST -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3>📢 Bütün İstifadəçilərə Elan Göndər</h3>
+          </div>
+          <div class="section-body">
+            <form id="broadcastForm">
+              <div class="form-group">
+                <label for="broadcastMsg">Elan Mətni (Bütün istifadəçilərin Moon Lounge otağına rəsmi sistem bildirişi kimi gedəcək)</label>
+                <textarea id="broadcastMsg" class="input-field" rows="4" placeholder="Məsələn: Sistem yeniləndi! Yeni funksiyalar əlavə edildi..." required></textarea>
+              </div>
+              <button type="submit" class="btn" id="btnSendBroadcast">🚀 Rəsmi Elanı Yayımla</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- APP SETTINGS -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3>⚙️ Tətbiq Parametrləri</h3>
+          </div>
+          <div class="section-body">
+            <form id="settingsForm">
+              <div class="form-group">
+                <label for="settingTitle">Tətbiq Başlığı (Title)</label>
+                <input type="text" id="settingTitle" class="input-field" placeholder="WhatsApp Web - MoonApp">
+              </div>
+              <div class="form-group">
+                <label for="settingPass">Yeni Admin Şifrəsi (Dəyişmək istəmirsinizsə boş buraxın)</label>
+                <input type="password" id="settingPass" class="input-field" placeholder="••••••••">
+              </div>
+              <button type="submit" class="btn" id="btnSaveSettings">💾 Parametrləri Saxla</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const checkmarkSvg = `<span class="mavi-tik-badge" title="Təsdiqlənmiş Mavi Tik"><svg viewBox="0 0 24 24" fill="#00a884"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>`;
+
+    const authView = document.getElementById('authView');
+    const dashboardView = document.getElementById('dashboardView');
+    const adminLoginForm = document.getElementById('adminLoginForm');
+    const adminPassInput = document.getElementById('adminPassInput');
+    const btnAdminLogout = document.getElementById('btnAdminLogout');
+    const btnRefreshUsers = document.getElementById('btnRefreshUsers');
+    const usersTableBody = document.getElementById('usersTableBody');
+    const broadcastForm = document.getElementById('broadcastForm');
+    const broadcastMsg = document.getElementById('broadcastMsg');
+    const settingsForm = document.getElementById('settingsForm');
+    const settingTitle = document.getElementById('settingTitle');
+    const settingPass = document.getElementById('settingPass');
+
+    // Check Session
+    const adminToken = localStorage.getItem('moonapp_admin_token');
+    if (adminToken) {
+      showDashboard();
+    }
+
+    adminLoginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = adminPassInput.value.trim();
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          localStorage.setItem('moonapp_admin_token', data.token);
+          showDashboard();
+        } else {
+          alert(data.error || 'Şifrə yalnışdır');
+        }
+      } catch (err) {
+        alert('Giriş xətası: ' + err.message);
+      }
+    });
+
+    btnAdminLogout.addEventListener('click', () => {
+      localStorage.removeItem('moonapp_admin_token');
+      window.location.reload();
+    });
+
+    function showDashboard() {
+      authView.style.display = 'none';
+      dashboardView.style.display = 'flex';
+      loadStats();
+      loadUsers();
+      loadSettings();
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/admin/stats');
+        const data = await res.json();
+        if (data.success && data.stats) {
+          document.getElementById('statUsers').textContent = data.stats.total_users || 0;
+          document.getElementById('statOnline').textContent = data.stats.online_users || 0;
+          document.getElementById('statMessages').textContent = data.stats.total_messages || 0;
+          document.getElementById('statVerified').textContent = data.stats.verified_users || 0;
+        }
+      } catch (e) {
+        console.error('Stats error:', e);
+      }
+    }
+
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/admin/users');
+        const data = await res.json();
+        if (data.success && data.users) {
+          renderUsers(data.users);
+        }
+      } catch (e) {
+        console.error('Users load error:', e);
+      }
+    }
+
+    function renderUsers(users) {
+      usersTableBody.innerHTML = '';
+      if (!users || users.length === 0) {
+        usersTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted)">Qeydiyyatdan keçmiş istifadəçi yoxdur</td></tr>`;
+        return;
+      }
+
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        const isVerified = u.is_verified === 1;
+        const isOnline = u.online === 1;
+
+        let avatarHtml = u.avatar && (u.avatar.startsWith('http') || u.avatar.startsWith('/uploads/')) 
+          ? `<img src="${u.avatar}" alt="Avatar">` 
+          : (u.avatar || '👤');
+
+        tr.innerHTML = `
+          <td>
+            <div class="user-cell">
+              <div class="avatar-sm">${avatarHtml}</div>
+              <div>
+                <div class="user-meta-name">${escapeHtml(u.nickname || u.username)} ${isVerified ? checkmarkSvg : ''}</div>
+                <div class="user-meta-sub">@${escapeHtml(u.username)}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge-tag ${isOnline ? 'badge-online' : 'badge-offline'}">
+              ${isOnline ? '🟢 Onlayn' : 'Oflayn'}
+            </span>
+          </td>
+          <td>
+            ${isVerified ? '<span style="color:#00a884; font-weight:600;">💎 Təsdiqlənib</span>' : '<span style="color:var(--text-muted)">Standart</span>'}
+          </td>
+          <td style="color: var(--text-muted); font-size: 13px;">
+            ${u.last_seen ? new Date(u.last_seen).toLocaleString('az-AZ') : '—'}
+          </td>
+          <td>
+            <div class="actions-group">
+              <button class="btn btn-sm ${isVerified ? 'btn-verify verified' : 'btn-verify'}" onclick="toggleVerified('${u.id}', ${isVerified ? 0 : 1})">
+                ${isVerified ? 'Mavi Tıki Ləğv Et' : '💎 Mavi Tik Ver'}
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="deleteUserAccount('${u.id}', '${escapeHtml(u.username)}')">
+                🗑️ Sil
+              </button>
+            </div>
+          </td>
+        `;
+        usersTableBody.appendChild(tr);
+      });
+    }
+
+    window.toggleVerified = async function(userId, newStatus) {
+      try {
+        const res = await fetch('/api/admin/user/toggle-verified', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, isVerified: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadUsers();
+          loadStats();
+        } else {
+          alert(data.error || 'Əməliyyat baş tutmadı');
+        }
+      } catch (e) {
+        alert('Xəta: ' + e.message);
+      }
+    };
+
+    window.deleteUserAccount = async function(userId, username) {
+      if (!confirm(`@${username} istifadəçisini və bütün əlaqəli məlumatlarını silmək istədiyinizə əminsiniz?`)) return;
+      try {
+        const res = await fetch('/api/admin/user/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadUsers();
+          loadStats();
+        } else {
+          alert(data.error || 'Silinmədi');
+        }
+      } catch (e) {
+        alert('Xəta: ' + e.message);
+      }
+    };
+
+    btnRefreshUsers.addEventListener('click', () => {
+      loadUsers();
+      loadStats();
+    });
+
+    // Broadcast Form
+    broadcastForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = broadcastMsg.value.trim();
+      if (!message) return;
+      try {
+        const res = await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Rəsmi elan bütün istifadəçilərə yayımlandı!');
+          broadcastMsg.value = '';
+          loadStats();
+        } else {
+          alert(data.error || 'Elan göndərilmədi');
+        }
+      } catch (e) {
+        alert('Xəta: ' + e.message);
+      }
+    });
+
+    // Settings
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/admin/settings');
+        const data = await res.json();
+        if (data.success && data.settings) {
+          settingTitle.value = data.settings.app_title || '';
+        }
+      } catch (e) {
+        console.error('Settings load error:', e);
+      }
+    }
+
+    settingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = settingTitle.value.trim();
+      const pass = settingPass.value.trim();
+      try {
+        const res = await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app_title: title,
+            admin_password: pass || undefined
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Parametrlər uğurla yadda saxlanıldı!');
+          settingPass.value = '';
+        } else {
+          alert(data.error || 'Saxlanılmadı');
+        }
+      } catch (e) {
+        alert('Xəta: ' + e.message);
+      }
+    });
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return String(text).replace(/[&<>"']/g, (m) => map[m]);
+    }
+  </script>
+</body>
+</html>
