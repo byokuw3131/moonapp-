@@ -1000,6 +1000,13 @@ document.addEventListener('DOMContentLoaded', () => {
     profileModal.style.display = 'none';
   });
 
+  const btnCancelProfile = document.getElementById('btnCancelProfile');
+  if (btnCancelProfile) {
+    btnCancelProfile.addEventListener('click', () => {
+      profileModal.style.display = 'none';
+    });
+  }
+
   btnSelectNewPic.addEventListener('click', () => avatarFileInput.click());
 
   avatarFileInput.addEventListener('change', () => {
@@ -1028,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = res.user;
         localStorage.setItem('moonapp_user', JSON.stringify(currentUser));
         renderAvatar(currentUser.avatar, myAvatarDisplay);
-        myNicknameDisplay.textContent = currentUser.nickname;
+        myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
         profileModal.style.display = 'none';
       }
     });

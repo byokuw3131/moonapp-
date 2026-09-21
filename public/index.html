@@ -251,26 +251,50 @@
 
   <!-- PROFILE MODAL -->
   <div class="modal-backdrop" id="profileModal" style="display: none;">
-    <div class="dialog-box">
+    <div class="dialog-box profile-dialog">
       <div class="dialog-header">
         <h3>Profil Parametrləri</h3>
-        <button class="close-x-btn" id="btnCloseProfile">✕</button>
+        <button class="close-x-btn" id="btnCloseProfile" title="Bağla">✕</button>
       </div>
       <form id="profileForm" class="dialog-body-form">
-        <div class="profile-pic-row">
-          <div class="avatar-box large" id="editAvatarBox">🌙</div>
-          <button type="button" class="btn-secondary" id="btnSelectNewPic">📁 Şəkil Seç</button>
+        <!-- Modern Avatar Picker Centerpiece -->
+        <div class="profile-pic-container">
+          <div class="profile-avatar-wrapper" id="btnSelectNewPic" title="Profil şəklini dəyiş">
+            <div class="avatar-box profile-avatar-box" id="editAvatarBox">🌙</div>
+            <div class="avatar-camera-overlay">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+                <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+              </svg>
+            </div>
+          </div>
+          <button type="button" class="btn-change-photo" onclick="document.getElementById('avatarFileInput').click()">
+            📷 Şəkli Dəyiş
+          </button>
           <input type="file" id="avatarFileInput" accept="image/*" style="display: none;">
         </div>
+
         <div class="form-field">
-          <label>Ləqəb / Görünən Ad</label>
-          <input type="text" id="editNickInput" required>
+          <label for="editNickInput">Ləqəb / Görünən Ad</label>
+          <div class="form-input-box">
+            <input type="text" id="editNickInput" placeholder="Adınız və ya ləqəbiniz" required maxlength="32">
+            <span class="field-icon">✏️</span>
+          </div>
+          <span class="field-hint">Bu ad söhbətlərdə və kontaktlarınızda görünəcək.</span>
         </div>
+
         <div class="form-field">
-          <label>Status / Haqqında</label>
-          <input type="text" id="editBioInput" placeholder="Salam! Mən MoonApp istifadə edirəm 🌙">
+          <label for="editBioInput">Status / Haqqında</label>
+          <div class="form-input-box">
+            <input type="text" id="editBioInput" placeholder="Məsələn: Hey! I am using MoonApp 🌙" maxlength="100">
+            <span class="field-icon">💬</span>
+          </div>
         </div>
-        <button type="submit" class="btn-primary">Yadda Saxla</button>
+
+        <div class="form-footer-actions">
+          <button type="button" class="btn-modal-cancel" id="btnCancelProfile">Ləğv Et</button>
+          <button type="submit" class="btn-primary btn-modal-save">Yadda Saxla</button>
+        </div>
       </form>
     </div>
   </div>

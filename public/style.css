@@ -581,6 +581,72 @@ html, body {
   display: inline;
 }
 
+/* MESSAGE IMAGE (PROPORTIONAL, MODERN WHATSAPP STYLE) */
+.msg-image-wrap {
+  width: 100%;
+  max-width: 320px;
+  max-height: 360px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 4px;
+  cursor: pointer;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.msg-image-wrap img {
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+  transition: transform 0.2s ease;
+}
+.msg-image-wrap:hover img {
+  transform: scale(1.02);
+}
+
+/* MESSAGE FILE CARD */
+.msg-file-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s;
+}
+.msg-file-card:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+.msg-file-card .file-icon {
+  font-size: 24px;
+}
+.msg-file-card .file-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.msg-file-card .file-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.msg-file-card .file-size {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+
 .msg-meta-row {
   display: inline-flex;
   align-items: center;
@@ -876,46 +942,221 @@ html, body {
 .dialog-box {
   background: var(--bg-sidebar);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 16px;
   width: 90%;
   max-width: 440px;
   overflow: hidden;
-  box-shadow: 0 16px 36px rgba(0,0,0,0.7);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.8);
+  animation: dialogPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes dialogPop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 .dialog-box.small {
-  max-width: 320px;
+  max-width: 340px;
 }
+
 .dialog-header {
   background: var(--bg-header);
-  padding: 14px 18px;
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-color);
 }
 .dialog-header h3 {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 .close-x-btn {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.05);
   border: none;
   color: var(--text-secondary);
-  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 15px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
 }
+.close-x-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* MODERN PROFILE MODAL */
+.profile-dialog {
+  max-width: 420px;
+}
+.dialog-body-form {
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.profile-pic-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.profile-avatar-wrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  cursor: pointer;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.profile-avatar-box {
+  width: 96px !important;
+  height: 96px !important;
+  font-size: 42px !important;
+  background: #202c33;
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+}
+.profile-avatar-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-camera-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: #fff;
+  border-radius: 50%;
+}
+.profile-avatar-wrapper:hover .avatar-camera-overlay {
+  opacity: 1;
+}
+.btn-change-photo {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-change-photo:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+.form-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.form-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #182229;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-input-box:focus-within {
+  border-color: var(--wa-green);
+  box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.2);
+}
+.form-input-box input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  padding: 12px 38px 12px 14px;
+  font-size: 15px;
+}
+.form-input-box input::placeholder {
+  color: var(--text-muted);
+}
+.form-input-box .field-icon {
+  position: absolute;
+  right: 12px;
+  font-size: 15px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.field-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.form-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+.btn-modal-cancel {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-modal-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+.btn-modal-save {
+  width: auto !important;
+  padding: 10px 24px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+/* DIALOG SEARCH */
 .dialog-search {
-  padding: 10px 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
 }
 .dialog-search input {
   width: 100%;
-  background: var(--bg-header);
+  background: #182229;
   border: 1px solid var(--border-color);
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: 8px;
   color: var(--text-primary);
+  font-size: 14px;
   outline: none;
 }
+.dialog-search input:focus {
+  border-color: var(--wa-green);
+}
+
 .users-scroll-list {
   max-height: 320px;
   overflow-y: auto;
@@ -1001,6 +1242,41 @@ html, body {
 .btn-primary:hover {
   background: var(--wa-green-hover);
 }
+
+/* PIN MODAL BODY */
+.dialog-body-pin {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.dialog-body-pin p {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+.pin-field {
+  width: 160px !important;
+  text-align: center;
+  font-size: 24px !important;
+  letter-spacing: 12px;
+  background: #182229 !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 10px !important;
+  outline: none;
+}
+.pin-field:focus {
+  border-color: var(--wa-green) !important;
+}
+.pin-error {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 500;
+}
+
 
 /* CALL OVERLAY */
 .call-overlay {
@@ -1349,4 +1625,22 @@ html, body {
   .bubble-inner, .msg-bubble {
     max-width: 88% !important;
   }
+
+  .msg-image-wrap {
+    max-width: 260px !important;
+    max-height: 300px !important;
+  }
+  .msg-image-wrap img {
+    max-height: 300px !important;
+  }
+
+  .dialog-box {
+    width: 92% !important;
+    max-width: 360px !important;
+  }
+  .dialog-body-form {
+    padding: 16px 14px !important;
+    gap: 14px !important;
+  }
 }
+
