@@ -183,14 +183,11 @@ async function upsertUser({ id, username, nickname, avatar, bio }) {
        WHERE id = ?`,
       [nickname, avatar, bio, now, existing.id]
     );
-    // Make sure user is in lounge and has direct room with MoonBot
+    // Make sure user is in lounge
     await run(
       `INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES ('moon_lounge', ?)`,
       [existing.id]
     );
-    if (existing.id !== 'moonbot') {
-      await getOrCreateDirectRoom(existing.id, 'moonbot');
-    }
     return await get('SELECT * FROM users WHERE id = ?', [existing.id]);
   } else {
     await run(
@@ -202,9 +199,6 @@ async function upsertUser({ id, username, nickname, avatar, bio }) {
       `INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES ('moon_lounge', ?)`,
       [id]
     );
-    if (id !== 'moonbot') {
-      await getOrCreateDirectRoom(id, 'moonbot');
-    }
     return await get('SELECT * FROM users WHERE id = ?', [id]);
   }
 }
@@ -570,6 +564,11 @@ async function markRoomMessagesRead(roomId, currentUserId) {
   );
 }
 
+async function getRoomMemberIds(roomId) {
+  const members = await all('SELECT user_id FROM room_members WHERE room_id = ?', [roomId]);
+  return members.map(m => m.user_id);
+}
+
 module.exports = {
   initDatabase,
   upsertUser,
@@ -587,6 +586,7 @@ module.exports = {
   verifyUserPin,
   getRoomMessages,
   markRoomMessagesRead,
+  getRoomMemberIds,
   updateUserProfile,
   deleteMessage,
   clearRoomMessages,

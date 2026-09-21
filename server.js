@@ -68,53 +68,6 @@ app.get('/api/health', (req, res) => {
 const socketToUser = new Map(); // socket.id -> userId
 const userSockets = new Map();  // userId -> Set<socket.id>
 
-// MoonBot Automatic AI / Test Responder in Azerbaijani
-function getBotResponse(userMsg, userNickname, type) {
-  if (type === 'audio') {
-    return `Səsli mesajınızı dinlədim, ${userNickname}! Səsiniz aydın və təmiz gəlir 🎙️ Səsli mesaj sistemi əla işləyir!`;
-  }
-  if (type === 'image') {
-    return `Göndərdiyiniz şəkilə baxdım, ${userNickname}! Çox aydın və gözəl görünür 🖼️`;
-  }
-  if (type === 'file') {
-    return `Faylınızı qəbul etdim 📄 Yükləmə və göndərmə problemsiz işləyir!`;
-  }
-
-  const text = (userMsg || '').toLowerCase();
-
-  if (text.includes('salam') || text.includes('selam') || text.includes('hey') || text.includes('hi') || text.includes('sa')) {
-    return `Salam, ${userNickname}! 🌙 MoonApp-a xoş gəlmisiniz! Sizinlə söhbət etməkdən çox şadam. Necə kömək edə bilərəm?`;
-  }
-  if (text.includes('necesen') || text.includes('necəsən') || text.includes('netsen') || text.includes('nə var') || text.includes('naber')) {
-    return `Çox sağ olun, mən bir bot kimi həmişə enerjili və 100% hazıram! 🚀 Siz necəsiniz, ${userNickname}?`;
-  }
-  if (text.includes('test') || text.includes('yoxla') || text.includes('alo') || text.includes('123')) {
-    return `Test uğurludur! ✅ Real-time multiplayer sistemimiz sıfır gecikmə ilə işləyir. İndi istəsəniz dostunuza bu saytın linkini atıb onunla da danışa bilərsiniz!`;
-  }
-  if (text.includes('saat') || text.includes('vaxt')) {
-    const now = new Date().toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' });
-    return `Hazırda saat: ${now} ⏰`;
-  }
-  if (text.includes('kimsen') || text.includes('kimsən') || text.includes('adın') || text.includes('adin') || text.includes('bot')) {
-    return `Mən 🌙 MoonBot-am! MoonApp-ın canlı sınaq və köməkçi botuyam. Mesaj göndərə, səs yaza və şəkil ata bilərsiniz.`;
-  }
-  if (text.includes('zarafat') || text.includes('lətifə') || text.includes('gulmeli')) {
-    const jokes = [
-      "— Proqramçı marketə gedir, arvadı deyir: 'Bir çörək al, əgər yumurta varsa, 10 dənə al'. Proqramçı 10 çörəklə qayıdır. Çünki yumurta var idi! 😄",
-      "— Niyə proqramçılar təbiəti sevmir? Çünki orada həddindən artıq çox 'bug' (həşərat) var! 🐛💻",
-      "— Bir kompüter digərinə nə deyir? 'Səninlə bağlantımız çox güclüdür!' 🔌❤️"
-    ];
-    return jokes[Math.floor(Math.random() * jokes.length)];
-  }
-
-  const defaultReplies = [
-    `Mesajınızı aldım, ${userNickname}! 🌙 Real-time multiplayer sistemimiz əla işləyir. Başqa bir sekmede və ya başqa telefondan girib iki nəfərlik söhbəti də test edə bilərsiniz.`,
-    `Əla! Sizin yazdığınız hər bir mesaj anında çatır. Başqa sualınız və ya test etmək istədiyiniz bir şey var? 💬`,
-    `Bəli, tamamilə razıyam! MoonApp-ın qara gecə dizaynı necədir, xoşunuza gəlir? 🌙✨`
-  ];
-  return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
-}
-
 io.on('connection', (socket) => {
   console.log(`[Socket] Connected: ${socket.id}`);
 
@@ -139,6 +92,9 @@ io.on('connection', (socket) => {
         userSockets.set(user.id, new Set());
       }
       userSockets.get(user.id).add(socket.id);
+
+      // Join personal room for 100% reliable direct message delivery
+      socket.join('user_' + user.id);
 
       // Auto join moon_lounge room
       socket.join('moon_lounge');
@@ -225,10 +181,12 @@ io.on('connection', (socket) => {
           const targetSocket = io.sockets.sockets.get(targetSocketId);
           if (targetSocket) {
             targetSocket.join(room.id);
-            targetSocket.emit('room_added', { roomId: room.id });
           }
         });
       }
+
+      // Notify target user via user channel
+      io.to('user_' + targetUserId).emit('room_added', { roomId: room.id, room });
 
       if (callback) callback({ success: true, room });
     } catch (err) {
@@ -300,6 +258,21 @@ io.on('connection', (socket) => {
         roomId: msgData.roomId,
         lastMessage: savedMsg
       });
+
+      // Direct message notification to room members so recipient ALWAYS receives it even if not focused on this room
+      try {
+        const memberIds = await db.getRoomMemberIds(msgData.roomId);
+        if (memberIds && memberIds.length > 0) {
+          memberIds.forEach((mId) => {
+            io.to('user_' + mId).emit('direct_message_notify', {
+              roomId: msgData.roomId,
+              message: savedMsg
+            });
+          });
+        }
+      } catch (errMembers) {
+        console.error('Member notify error:', errMembers);
+      }
 
       if (callback) callback({ success: true, message: savedMsg });
     } catch (err) {
