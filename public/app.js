@@ -901,10 +901,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('div');
       row.className = 'user-row-item';
       row.innerHTML = `
-        <div class="avatar-box" id="u_avatar_${u.id}"></div>
+        <div class="item-avatar-box">
+          <div class="avatar-box" id="u_avatar_${u.id}"></div>
+        </div>
         <div class="user-row-info">
           <span class="u-name">${escapeHtml(u.nickname || u.username)}</span>
-          <span class="u-sub">@${escapeHtml(u.username)} • ${u.online ? '🟢 onlayn' : 'oflayn'}</span>
+          <span class="u-sub">@${escapeHtml(u.username)} • ${u.online ? '<span style="color:#00a884;">🟢 onlayn</span>' : 'oflayn'}</span>
         </div>
       `;
       renderAvatar(u.avatar, row.querySelector(`#u_avatar_${u.id}`));
