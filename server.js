@@ -457,83 +457,56 @@ io.on('connection', (socket) => {
     }
   });
 
-  // VOICE & VIDEO CALLING SIGNALING (WebRTC)
-  socket.on('call_user', async ({ targetUserId, roomId, callType = 'audio' }, callback) => {
+  // VOICE & VIDEO CALLING SIGNALING (WebRTC 1-on-1 Guaranteed Delivery)
+  socket.on('call_user', async ({ targetUserId, offer, callType = 'voice' }, callback) => {
     const callerId = socketToUser.get(socket.id);
-    if (!callerId) return;
-
-    const callerUser = await db.getUser(callerId);
-
-    // Peer-to-peer call
-    const targetSockets = userSockets.get(targetUserId);
-    if (!targetSockets || targetSockets.size === 0) {
-      if (callback) callback({ error: 'İstifadəçi hazırda oflayndır.' });
+    if (!callerId || !targetUserId) {
+      if (callback) callback({ error: 'Zəng edilə bilmədi.' });
       return;
     }
 
-    // Ring target
-    targetSockets.forEach((sId) => {
-      io.to(sId).emit('incoming_call', {
-        callerId,
-        callerName: callerUser ? callerUser.nickname : 'İstifadəçi',
-        callerAvatar: callerUser ? callerUser.avatar : '🌙',
-        roomId,
-        callType
-      });
-    });
+    const callerUser = await db.getUser(callerId);
 
-    socket.emit('call_ringing', {
-      targetUserId,
-      targetName: 'İstifadəçi',
+    // Relay call directly to user's personal channel
+    io.to('user_' + targetUserId).emit('incoming_call', {
+      fromUserId: callerId,
+      callerName: callerUser ? callerUser.nickname : 'İstifadəçi',
+      callerAvatar: callerUser ? callerUser.avatar : '🌙',
+      offer,
       callType
     });
 
     if (callback) callback({ success: true });
   });
 
-  socket.on('accept_call', ({ callerId, callType = 'audio' }) => {
+  socket.on('accept_call', ({ targetUserId, answer }) => {
     const userId = socketToUser.get(socket.id);
-    const callerSockets = userSockets.get(callerId);
-    if (callerSockets) {
-      callerSockets.forEach((sId) => {
-        io.to(sId).emit('call_accepted', { peerId: userId, callType });
-      });
-    }
+    if (!userId || !targetUserId) return;
+    io.to('user_' + targetUserId).emit('call_accepted', {
+      fromUserId: userId,
+      answer
+    });
   });
 
-  socket.on('reject_call', ({ callerId }) => {
-    const callerSockets = userSockets.get(callerId);
-    if (callerSockets) {
-      callerSockets.forEach((sId) => {
-        io.to(sId).emit('call_rejected', { reason: 'Zəng rədd edildi' });
-      });
-    }
+  socket.on('reject_call', ({ targetUserId }) => {
+    const userId = socketToUser.get(socket.id);
+    if (!targetUserId) return;
+    io.to('user_' + targetUserId).emit('call_rejected', { fromUserId: userId });
   });
 
-  socket.on('end_call', ({ peerId }) => {
-    if (peerId && peerId !== 'moonbot') {
-      const peerSockets = userSockets.get(peerId);
-      if (peerSockets) {
-        peerSockets.forEach((sId) => {
-          io.to(sId).emit('call_ended');
-        });
-      }
-    }
+  socket.on('end_call', ({ targetUserId }) => {
+    const userId = socketToUser.get(socket.id);
+    if (!targetUserId) return;
+    io.to('user_' + targetUserId).emit('call_ended', { fromUserId: userId });
   });
 
-  // WebRTC ICE & SDP signaling relay
-  socket.on('webrtc_signal', ({ targetUserId, signal }) => {
-    const senderId = socketToUser.get(socket.id);
-    if (!targetUserId || targetUserId === 'moonbot') return;
-    const targetSockets = userSockets.get(targetUserId);
-    if (targetSockets) {
-      targetSockets.forEach((sId) => {
-        io.to(sId).emit('webrtc_signal', {
-          senderId,
-          signal
-        });
-      });
-    }
+  socket.on('ice_candidate', ({ targetUserId, candidate }) => {
+    const userId = socketToUser.get(socket.id);
+    if (!targetUserId || !candidate) return;
+    io.to('user_' + targetUserId).emit('ice_candidate', {
+      fromUserId: userId,
+      candidate
+    });
   });
 
   // Disconnect

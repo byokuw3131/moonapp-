@@ -23,10 +23,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let callTimerInterval = null;
   let callStartTime = null;
 
+  let iceCandidateQueue = [];
+
   const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:stun.services.mozilla.com' }
     ]
   };
 
@@ -1080,12 +1086,41 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     peerConnection.ontrack = (e) => {
-      if (currentCallType === 'video') {
-        remoteVideoEl.srcObject = e.streams[0];
-      } else {
-        remoteAudioOutput.srcObject = e.streams[0];
+      console.log('[WebRTC] Track received:', e.track.kind);
+      const stream = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+
+      if (currentCallType === 'video' && remoteVideoEl) {
+        remoteVideoEl.srcObject = stream;
+        remoteVideoEl.play().catch((err) => console.warn('remoteVideo play err:', err));
+      }
+
+      if (remoteAudioOutput) {
+        remoteAudioOutput.srcObject = stream;
+        remoteAudioOutput.play().catch((err) => console.warn('remoteAudio play err:', err));
       }
     };
+
+    peerConnection.onconnectionstatechange = () => {
+      console.log('[WebRTC] Connection state:', peerConnection.connectionState);
+      if (peerConnection.connectionState === 'connected') {
+        callCardState.textContent = 'Danışıq davam edir...';
+        startCallClock();
+      } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+        endCallCleanup();
+      }
+    };
+  }
+
+  async function processQueuedIceCandidates() {
+    if (!peerConnection || !peerConnection.remoteDescription) return;
+    while (iceCandidateQueue.length > 0) {
+      const cand = iceCandidateQueue.shift();
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+      } catch (e) {
+        console.warn('Queued ICE error:', e);
+      }
+    }
   }
 
   function showCallOverlay(name, avatar, state) {
@@ -1110,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function endCallCleanup() {
     MoonAudio.stopRinging();
     clearInterval(callTimerInterval);
+    iceCandidateQueue = [];
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
@@ -1118,6 +1154,9 @@ document.addEventListener('DOMContentLoaded', () => {
       localStream.getTracks().forEach((t) => t.stop());
       localStream = null;
     }
+    if (remoteVideoEl) remoteVideoEl.srcObject = null;
+    if (localVideoEl) localVideoEl.srcObject = null;
+    if (remoteAudioOutput) remoteAudioOutput.srcObject = null;
     callOverlay.style.display = 'none';
     incomingCallBackdrop.style.display = 'none';
     incomingCallData = null;
@@ -1188,7 +1227,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     showCallOverlay(incomingCallData.callerName, incomingCallData.callerAvatar, 'Danışıq davam edir...');
-    startCallClock();
 
     createPeerConnection();
     localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
@@ -1205,6 +1243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     await peerConnection.setRemoteDescription(new RTCSessionDescription(incomingCallData.offer));
+    await processQueuedIceCandidates();
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
@@ -1218,6 +1257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     MoonAudio.stopRinging();
     if (peerConnection) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      await processQueuedIceCandidates();
       callCardState.textContent = 'Danışıq davam edir...';
       startCallClock();
     }
@@ -1233,12 +1273,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('ice_candidate', async ({ candidate }) => {
-    if (peerConnection && candidate) {
+    if (!candidate) return;
+    if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
       try {
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
         console.warn('ICE Candidate error:', e);
       }
+    } else {
+      iceCandidateQueue.push(candidate);
     }
   });
 
