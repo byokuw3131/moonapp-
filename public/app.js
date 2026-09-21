@@ -183,10 +183,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const img = document.createElement('img');
       img.src = avatar;
       img.alt = 'Avatar';
-      img.onerror = () => { container.textContent = '👤'; };
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = 'inherit';
+      img.style.display = 'block';
+      img.onerror = () => { container.textContent = '🌙'; };
       container.appendChild(img);
     } else {
-      container.textContent = avatar || '👤';
+      container.textContent = avatar || '🌙';
     }
   }
 
@@ -1156,44 +1161,84 @@ document.addEventListener('DOMContentLoaded', () => {
     emojiPalette.style.display = 'none';
   }
 
-  // --- VOICE RECORDING LOGIC ---
+  // --- VOICE RECORDING LOGIC (OPTIMIZED FOR MOBILE & DESKTOP) ---
   let mediaRecorder = null;
   let audioChunks = [];
   let recordTimerInterval = null;
   let recordSeconds = 0;
   let voiceRecordingStream = null;
+  let chosenVoiceMime = '';
 
-  btnStartVoiceRecord.addEventListener('click', async () => {
+  function getBestVoiceMimeType() {
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+      return '';
+    }
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4;codecs=mp4a.40.2',
+      'audio/mp4',
+      'audio/aac',
+      'audio/ogg;codecs=opus',
+      'audio/ogg'
+    ];
+    for (const c of candidates) {
+      try {
+        if (MediaRecorder.isTypeSupported(c)) return c;
+      } catch (e) {}
+    }
+    return '';
+  }
+
+  btnStartVoiceRecord.addEventListener('click', async (e) => {
+    if (e) e.preventDefault();
     if (!currentRoom) {
       alert('Zəhmət olmasa əvvəlcə bir söhbət seçin.');
       return;
     }
 
-    try {
-      voiceRecordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      alert('Mikrofon icazəsi tələb olunur: ' + err.message);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Bu cihaz və ya brauzerdə səs yazma dəstəklənmir.');
       return;
     }
 
-    audioChunks = [];
-    // Determine supported mimeType
-    let mimeType = 'audio/webm';
-    if (!MediaRecorder.isTypeSupported('audio/webm')) {
-      if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
-      else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
-      else mimeType = '';
+    try {
+      voiceRecordingStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+    } catch (err1) {
+      try {
+        voiceRecordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err2) {
+        alert('Mikrofon xətası: Zəhmət olmasa brauzer parametrlərindən mikrofona icazə verin (' + (err2.message || err1.message) + ')');
+        return;
+      }
     }
+
+    audioChunks = [];
+    chosenVoiceMime = getBestVoiceMimeType();
 
     try {
-      mediaRecorder = mimeType ? new MediaRecorder(voiceRecordingStream, { mimeType }) : new MediaRecorder(voiceRecordingStream);
-    } catch (e) {
-      mediaRecorder = new MediaRecorder(voiceRecordingStream);
+      mediaRecorder = chosenVoiceMime 
+        ? new MediaRecorder(voiceRecordingStream, { mimeType: chosenVoiceMime })
+        : new MediaRecorder(voiceRecordingStream);
+    } catch (e1) {
+      try {
+        mediaRecorder = new MediaRecorder(voiceRecordingStream);
+      } catch (e2) {
+        alert('Səs yazma başladıla bilmədi: ' + e2.message);
+        stopVoiceRecordingCleanup();
+        return;
+      }
     }
 
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        audioChunks.push(e.data);
+    mediaRecorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size > 0) {
+        audioChunks.push(ev.data);
       }
     };
 
@@ -1203,6 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     recordSeconds = 0;
     voiceRecTimer.textContent = '0:00';
 
+    clearInterval(recordTimerInterval);
     recordTimerInterval = setInterval(() => {
       recordSeconds++;
       const m = Math.floor(recordSeconds / 60);
@@ -1210,7 +1256,12 @@ document.addEventListener('DOMContentLoaded', () => {
       voiceRecTimer.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
     }, 1000);
 
-    mediaRecorder.start();
+    // Request data every 100ms so chunks are continuous
+    try {
+      mediaRecorder.start(100);
+    } catch (e) {
+      mediaRecorder.start();
+    }
   });
 
   function stopVoiceRecordingCleanup() {
@@ -1224,51 +1275,85 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSendMicButtonVisibility();
   }
 
-  btnCancelVoiceRecord.addEventListener('click', () => {
+  btnCancelVoiceRecord.addEventListener('click', (e) => {
+    if (e) e.preventDefault();
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.onstop = null;
-      mediaRecorder.stop();
+      try { mediaRecorder.stop(); } catch(err){}
     }
     stopVoiceRecordingCleanup();
   });
 
-  btnSendVoiceRecord.addEventListener('click', () => {
+  btnSendVoiceRecord.addEventListener('click', async (e) => {
+    if (e) e.preventDefault();
     if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
 
-    const duration = recordSeconds;
-    mediaRecorder.onstop = () => {
+    const duration = Math.max(recordSeconds, 1);
+
+    // Request in-flight audio data before stopping
+    try {
+      if (mediaRecorder.state === 'recording') {
+        mediaRecorder.requestData();
+      }
+    } catch (err) {}
+
+    mediaRecorder.onstop = async () => {
       stopVoiceRecordingCleanup();
-      if (audioChunks.length === 0) return;
 
-      const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-      const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, { type: audioBlob.type });
+      // Brief delay to allow final ondataavailable event to flush
+      await new Promise((r) => setTimeout(r, 80));
 
-      // Upload and send as voice message
+      if (audioChunks.length === 0) {
+        showToast('Səs yazısı boşdur');
+        return;
+      }
+
+      const actualMime = mediaRecorder.mimeType || chosenVoiceMime || 'audio/webm';
+      let ext = 'webm';
+      if (actualMime.includes('mp4') || actualMime.includes('aac')) {
+        ext = 'mp4';
+      } else if (actualMime.includes('ogg')) {
+        ext = 'ogg';
+      }
+
+      const audioBlob = new Blob(audioChunks, { type: actualMime });
+      const audioFile = new File([audioBlob], `voice_${Date.now()}.${ext}`, { type: audioBlob.type || actualMime });
+
       const formData = new FormData();
       formData.append('file', audioFile);
 
-      fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success && currentRoom) {
-            socket.emit('send_message', {
-              roomId: currentRoom.id,
-              type: 'voice',
-              fileUrl: data.fileUrl,
-              fileName: 'Səsli mesaj',
-              fileSize: data.fileSize,
-              duration: duration,
-              content: ''
-            }, () => MoonAudio.playSentSound());
-          }
-        })
-        .catch((err) => alert('Səsli mesaj göndərilmədi: ' + err.message));
+      showToast('Səsli mesaj göndərilir...');
+      try {
+        const resp = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await resp.json();
+        if (data.success && currentRoom) {
+          socket.emit('send_message', {
+            roomId: currentRoom.id,
+            type: 'voice',
+            fileUrl: data.fileUrl,
+            fileName: 'Səsli mesaj',
+            fileSize: data.fileSize,
+            duration: duration,
+            content: ''
+          }, () => {
+            MoonAudio.playSentSound();
+          });
+        } else {
+          alert('Səsli mesaj göndərilmədi: ' + (data.error || 'Server xətası'));
+        }
+      } catch (err) {
+        alert('Səsli mesaj yüklənmə xətası: ' + err.message);
+      }
     };
 
-    mediaRecorder.stop();
+    try {
+      mediaRecorder.stop();
+    } catch (err) {
+      console.error('mediaRecorder stop error:', err);
+    }
   });
 
   // Toggle Emoji & Attachments Menus
