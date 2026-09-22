@@ -317,17 +317,17 @@ async function initDatabase() {
        VALUES (?, ?, ?, ?, ?)`,
       [
         'moon_lounge',
-        '🌙 Moon Ümumi Söhbət',
+        'Moon Ümumi Söhbət',
         'group',
-        '🌌',
+        '/logo.png',
         'MoonApp rəsmi ümumi söhbət otağı. Hər kəs burada yaza bilər!'
       ]
     );
     console.log('Default "moon_lounge" room created.');
   }
 
-  // Update room name if already exists
-  await run(`UPDATE rooms SET name = '🌙 Moon Ümumi Söhbət', description = 'MoonApp rəsmi ümumi söhbət otağı. Hər kəs burada yaza bilər!' WHERE id = 'moon_lounge'`);
+  // Update room name and avatar if already exists
+  await run(`UPDATE rooms SET name = 'Moon Ümumi Söhbət', avatar = '/logo.png', description = 'MoonApp rəsmi ümumi söhbət otağı. Hər kəs burada yaza bilər!' WHERE id = 'moon_lounge'`);
 
   // Clean up any remaining bot entries if exists
   await run(`DELETE FROM users WHERE id = 'moonbot'`);
@@ -385,7 +385,7 @@ async function upsertUser({ id, username, nickname, avatar, bio, pin_code }) {
     await run(
       `INSERT INTO users (id, username, nickname, avatar, bio, pin_code, online, last_seen)
        VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-      [id, username, nickname || username, avatar || '🌙', bio || 'MoonApp istifadəçisi 🌙', safePin, now]
+      [id, username, nickname || username, avatar || '/logo.png', bio || 'MoonApp istifadəçisi', safePin, now]
     );
     await run(
       `INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES ('moon_lounge', ?)`,
@@ -517,9 +517,9 @@ async function getOrCreateDirectRoom(userAId, userBId) {
     id: roomId,
     name: targetUser ? (targetUser.nickname || targetUser.username) : 'İstifadəçi',
     type: 'direct',
-    avatar: targetUser ? (targetUser.avatar || '🌙') : '🌙',
+    avatar: targetUser ? (targetUser.avatar || '/logo.png') : '/logo.png',
     display_name: targetUser ? (targetUser.nickname || targetUser.username) : 'İstifadəçi',
-    display_avatar: targetUser ? (targetUser.avatar || '🌙') : '🌙',
+    display_avatar: targetUser ? (targetUser.avatar || '/logo.png') : '/logo.png',
     other_user_id: userBId,
     other_user_online: targetUser ? (targetUser.online || 0) : 0,
     other_user_verified: targetUser ? (targetUser.is_verified || 0) : 0,
@@ -546,7 +546,7 @@ async function getUserRooms(userId, showHidden = false) {
         ELSE r.name
       END AS display_name,
       CASE 
-        WHEN r.type = 'direct' THEN COALESCE(other_u.avatar, '🌙')
+        WHEN r.type = 'direct' THEN COALESCE(other_u.avatar, '/logo.png')
         ELSE r.avatar
       END AS display_avatar,
       CASE 

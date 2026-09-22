@@ -540,7 +540,7 @@ io.on('connection', (socket) => {
       const story = await db.createStory({
         userId,
         userName: user ? user.nickname : 'İstifadəçi',
-        userAvatar: user ? user.avatar : '🌙',
+        userAvatar: user ? user.avatar : '/logo.png',
         type: storyData.type || 'text',
         content: storyData.content || '',
         mediaUrl: storyData.mediaUrl || null,
@@ -575,14 +575,14 @@ io.on('connection', (socket) => {
         storyId,
         viewerId: userId,
         viewerName: user ? user.nickname : 'İstifadəçi',
-        viewerAvatar: user ? user.avatar : '🌙'
+        viewerAvatar: user ? user.avatar : '/logo.png'
       });
       if (ownerId && ownerId !== userId) {
         io.to('user_' + ownerId).emit('story_viewed', {
           storyId,
           viewerId: userId,
           viewerName: user ? user.nickname : 'İstifadəçi',
-          viewerAvatar: user ? user.avatar : '🌙',
+          viewerAvatar: user ? user.avatar : '/logo.png',
           viewsCount: views.length
         });
       }
@@ -748,7 +748,7 @@ io.on('connection', (socket) => {
     io.to('user_' + targetUserId).emit('incoming_call', {
       fromUserId: callerId,
       callerName: callerUser ? callerUser.nickname : 'İstifadəçi',
-      callerAvatar: callerUser ? callerUser.avatar : '🌙',
+      callerAvatar: callerUser ? callerUser.avatar : '/logo.png',
       offer,
       callType
     });

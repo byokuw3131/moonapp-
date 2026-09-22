@@ -209,28 +209,129 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let incomingCallData = null;
 
-  // Common Emojis
-  const EMOJI_LIST = [
-    '😊', '😂', '🤣', '❤️', '😍', '👍', '🔥', '🎉',
-    '🙏', '✨', '🚀', '👏', '🥳', '😎', '😢', '🥺',
-    '💯', '💬', '🌙', '👌', '🤝', '😉', '🥰', '🤔',
-    '😅', '🙌', '💪', '🌹', '⚡', '⭐', '🎈', '🤩'
-  ];
+  // Modern Categorized Emojis Collection
+  const emojiCategoriesTabs = document.getElementById('emojiCategoriesTabs');
+  const emojiCategoryTitle = document.getElementById('emojiCategoryTitle');
+
+  const EMOJI_CATEGORIES = {
+    smileys: {
+      title: 'Gülüşlər və Duyğular',
+      emojis: [
+        '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂',
+        '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩',
+        '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪',
+        '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨',
+        '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
+        '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕',
+        '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯',
+        '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁',
+        '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨',
+        '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞',
+        '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬',
+        '😈', '👿', '💀', '☠️', '💩', '🤡', '👻', '👽'
+      ]
+    },
+    hearts: {
+      title: 'Sevgi və Ürəklər',
+      emojis: [
+        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+        '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖',
+        '💘', '💝', '💟', '💌', '💋', '💍', '💎', '💐',
+        '🌹', '🥀', '🌺', '🌸', '🌼', '🌻', '✨', '⭐'
+      ]
+    },
+    gestures: {
+      title: 'Jestlər və Əl Hərəkətləri',
+      emojis: [
+        '👍', '👎', '👊', '✊', '🤛', '🤜', '👏', '🙌',
+        '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪',
+        '👈', '👉', '👆', '👇', '✌️', '🤞', '🤟', '🤘',
+        '🤙', '🖐️', '✋', '👌', '🤌', '🤏', '👋', '👑'
+      ]
+    },
+    popular: {
+      title: 'Populyar və Şənlik',
+      emojis: [
+        '🔥', '✨', '⚡', '🚀', '🎉', '🎊', '🎈', '🎁',
+        '🏆', '🥇', '🥈', '🥉', '💯', '💥', '💢', '💫',
+        '🌟', '🎯', '🎲', '🎵', '🎶', '🔊', '📢', '🔔',
+        '☀️', '🌙', '🌈', '🍀', '💸', '💵', '💰', '🛡️'
+      ]
+    },
+    food: {
+      title: 'Yemək və İçkilər',
+      emojis: [
+        '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇',
+        '🍓', '🫐', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝',
+        '🍅', '🥑', '🍔', '🍟', '🍕', '🌭', '🥪', '🌮',
+        '🌯', '🥗', '🍿', '🍩', '🍪', '🎂', '🍰', '🍫',
+        '🍬', '🍭', '☕', '🍵', '🧃', '🥤', '🍺', '🍷'
+      ]
+    },
+    nature: {
+      title: 'Heyvanlar və Təbiət',
+      emojis: [
+        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
+        '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
+        '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺',
+        '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐾'
+      ]
+    },
+    objects: {
+      title: 'Simvollar və Obyektlər',
+      emojis: [
+        '📱', '💻', '🖥️', '📷', '📹', '🕹️', '💡', '⏰',
+        '🔒', '🔑', '✉️', '📦', '✏️', '📌', '📎', '🪄',
+        '🧿', '🔮', '🚗', '🚕', '✈️', '⛵', '🌍', '🪐'
+      ]
+    }
+  };
+
+  let currentEmojiCategory = 'smileys';
 
   function initEmojiPalette() {
+    renderEmojiCategory(currentEmojiCategory);
+
+    if (emojiCategoriesTabs) {
+      emojiCategoriesTabs.querySelectorAll('.emoji-cat-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          emojiCategoriesTabs.querySelectorAll('.emoji-cat-btn').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const cat = btn.dataset.cat;
+          if (cat && EMOJI_CATEGORIES[cat]) {
+            currentEmojiCategory = cat;
+            renderEmojiCategory(cat);
+          }
+        });
+      });
+    }
+  }
+
+  function renderEmojiCategory(catKey) {
+    const catData = EMOJI_CATEGORIES[catKey];
+    if (!catData || !emojiPaletteGrid) return;
+    if (emojiCategoryTitle) emojiCategoryTitle.textContent = catData.title;
+
     emojiPaletteGrid.innerHTML = '';
-    EMOJI_LIST.forEach((emoji) => {
+    catData.emojis.forEach((emoji) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'emoji-btn';
       btn.textContent = emoji;
       btn.addEventListener('click', () => {
-        messageTextInput.value += emoji;
-        messageTextInput.focus();
+        if (imageStagingBar && imageStagingBar.style.display !== 'none' && stagingCaptionInput) {
+          stagingCaptionInput.value += emoji;
+          stagingCaptionInput.focus();
+        } else if (messageTextInput) {
+          messageTextInput.value += emoji;
+          messageTextInput.focus();
+          messageTextInput.dispatchEvent(new Event('input'));
+        }
       });
       emojiPaletteGrid.appendChild(btn);
     });
   }
+
   initEmojiPalette();
 
   // Helper: Verified Tick Badge (Mavi Tik)
@@ -252,10 +353,14 @@ document.addEventListener('DOMContentLoaded', () => {
       img.style.objectFit = 'cover';
       img.style.borderRadius = 'inherit';
       img.style.display = 'block';
-      img.onerror = () => { container.textContent = '🌙'; };
+      img.onerror = () => {
+        container.innerHTML = '<img src="/logo.png" style="width:70%;height:70%;object-fit:contain;">';
+      };
       container.appendChild(img);
+    } else if (avatar && avatar !== '🌙') {
+      container.textContent = avatar;
     } else {
-      container.textContent = avatar || '🌙';
+      container.innerHTML = '<img src="/logo.png" style="width:70%;height:70%;object-fit:contain;">';
     }
   }
 
@@ -1517,6 +1622,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       stagingThumbImg.src = e.target.result;
+      const normalBar = document.getElementById('inputNormalMode');
+      const voiceBar = document.getElementById('voiceRecordingBar');
+      if (normalBar) normalBar.style.display = 'none';
+      if (voiceBar) voiceBar.style.display = 'none';
       imageStagingBar.style.display = 'flex';
       stagingCaptionInput.value = '';
       stagingCaptionInput.focus();
@@ -1539,6 +1648,8 @@ document.addEventListener('DOMContentLoaded', () => {
     isViewOnceSelected = false;
     btnToggleViewOnce.classList.remove('active');
     imageStagingBar.style.display = 'none';
+    const normalBar = document.getElementById('inputNormalMode');
+    if (normalBar) normalBar.style.display = 'flex';
     stagingThumbImg.src = '';
     imageFileInput.value = '';
   });
@@ -1561,6 +1672,8 @@ document.addEventListener('DOMContentLoaded', () => {
     isViewOnceSelected = false;
     btnToggleViewOnce.classList.remove('active');
     imageStagingBar.style.display = 'none';
+    const normalBar = document.getElementById('inputNormalMode');
+    if (normalBar) normalBar.style.display = 'flex';
     stagingThumbImg.src = '';
     imageFileInput.value = '';
 
