@@ -59,12 +59,12 @@
       <div class="stories-tray-section">
         <div class="stories-tray-scroll" id="storiesScrollTrack">
           <!-- My status bubble -->
-          <div class="story-item-bubble my-story-bubble" id="btnMyStoryTrigger" title="Status Paylaş">
+          <div class="story-bubble-item my-story-bubble" id="btnMyStoryTrigger" title="Status Paylaş">
             <div class="story-avatar-container" id="myStoryAvatarRing">
               <div class="story-avatar-inner" id="myStoryAvatarDisplay">
                 <img src="/logo.png" alt="Status" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
               </div>
-              <span class="story-plus-badge">+</span>
+              <span class="story-plus-badge" id="btnMyStoryPlusBadge">+</span>
             </div>
             <span class="story-bubble-label">Statusum</span>
           </div>
@@ -434,7 +434,7 @@
           </div>
         </div>
         <input type="file" id="storyImageFileInput" accept="image/*" style="display: none;">
-        <input type="text" id="storyPhotoCaption" placeholder="Açıqlama əlavə edin (istəyə görə)..." class="pin-field" style="margin-top: 14px; text-align: left;">
+        <input type="text" id="storyPhotoCaption" placeholder="Açıqlama əlavə edin (istəyə görə)..." class="story-caption-input" style="margin-top: 14px; width: 100%; box-sizing: border-box; padding: 10px 14px; font-size: 14px; background: #182229; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; outline: none;">
       </div>
       <!-- Tab 2: Text Story -->
       <div class="story-tab-pane" id="storyTabPaneText" style="display: none;">
@@ -444,16 +444,16 @@
         <div class="story-color-palette">
           <span class="color-label">Arxa fon rəngi:</span>
           <div class="color-bubbles-row">
-            <button type="button" class="color-bubble active" data-color="#00a884" style="background: #00a884;"></button>
-            <button type="button" class="color-bubble" data-color="#8e24aa" style="background: #8e24aa;"></button>
-            <button type="button" class="color-bubble" data-color="#1e88e5" style="background: #1e88e5;"></button>
-            <button type="button" class="color-bubble" data-color="#e53935" style="background: #e53935;"></button>
-            <button type="button" class="color-bubble" data-color="#f57c00" style="background: #f57c00;"></button>
-            <button type="button" class="color-bubble" data-color="#37474f" style="background: #37474f;"></button>
+            <button type="button" class="color-bubble story-color-swatch active" data-color="#00a884" style="background: #00a884;"></button>
+            <button type="button" class="color-bubble story-color-swatch" data-color="#8e24aa" style="background: #8e24aa;"></button>
+            <button type="button" class="color-bubble story-color-swatch" data-color="#1e88e5" style="background: #1e88e5;"></button>
+            <button type="button" class="color-bubble story-color-swatch" data-color="#e53935" style="background: #e53935;"></button>
+            <button type="button" class="color-bubble story-color-swatch" data-color="#f57c00" style="background: #f57c00;"></button>
+            <button type="button" class="color-bubble story-color-swatch" data-color="#37474f" style="background: #37474f;"></button>
           </div>
         </div>
       </div>
-      <div class="form-footer-actions" style="margin-top: 20px;">
+      <div class="form-footer-actions" style="margin-top: 10px; padding: 0 20px 20px;">
         <button type="button" class="btn-modal-cancel" id="btnCancelStoryCreate">Ləğv Et</button>
         <button type="button" class="btn-primary btn-modal-save" id="btnPublishStory">🚀 Statusu Paylaş</button>
       </div>
@@ -477,6 +477,7 @@
           </div>
         </div>
         <div class="story-header-actions">
+          <button class="story-add-more-btn" id="btnStoryAddMore" title="Yeni status əlavə et" style="display: none; background: rgba(0, 168, 132, 0.3); border: 1px solid #00a884; color: #fff; border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;">➕ Əlavə Et</button>
           <button class="story-delete-btn" id="btnDeleteStory" title="Statusu sil" style="display: none;">🗑️</button>
           <button class="story-close-btn" id="btnCloseStoryViewer" title="Bağla">✕</button>
         </div>

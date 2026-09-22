@@ -2164,6 +2164,15 @@ html, body {
     font-size: 15px !important;
     padding: 4px 6px !important;
   }
+
+  .story-viewer-container {
+    width: 100vw !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+  }
 }
 
 /* ==========================================================================
@@ -2194,7 +2203,7 @@ html, body {
   gap: 12px;
 }
 
-.story-bubble-item {
+.story-bubble-item, .story-item-bubble {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2205,8 +2214,9 @@ html, body {
   max-width: 58px !important;
   text-align: center;
   transition: transform 0.15s ease;
+  user-select: none;
 }
-.story-bubble-item:hover {
+.story-bubble-item:hover, .story-item-bubble:hover {
   transform: scale(1.05);
 }
 
@@ -2466,7 +2476,7 @@ html, body {
   align-items: center;
   gap: 12px;
 }
-.story-close-btn, .story-delete-btn {
+.story-close-btn, .story-delete-btn, .story-add-more-btn {
   background: none;
   border: none;
   color: #fff;
@@ -2475,6 +2485,10 @@ html, body {
   padding: 4px;
   border-radius: 50%;
   line-height: 1;
+  transition: opacity 0.15s;
+}
+.story-close-btn:hover, .story-delete-btn:hover, .story-add-more-btn:hover {
+  opacity: 0.8;
 }
 
 .story-viewer-body {

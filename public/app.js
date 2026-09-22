@@ -147,9 +147,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 24h Stories / Status Elements
   const storiesTraySection = document.getElementById('storiesTraySection');
-  const btnAddMyStory = document.getElementById('btnAddMyStory');
+  const btnAddMyStory = document.getElementById('btnMyStoryTrigger') || document.getElementById('btnAddMyStory');
+  const btnMyStoryPlusBadge = document.getElementById('btnMyStoryPlusBadge');
   const myStoryAvatarDisplay = document.getElementById('myStoryAvatarDisplay');
   const storiesContactsTrack = document.getElementById('storiesContactsTrack');
+  const btnStoryAddMore = document.getElementById('btnStoryAddMore');
 
   const storyCreateModal = document.getElementById('storyCreateModal');
   const btnCloseStoryCreate = document.getElementById('btnCloseStoryCreate');
@@ -2689,11 +2691,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check my stories
     const myObj = cachedStories.find((s) => s.user_id === currentUser.id);
-    if (btnAddMyStory) {
+    const triggerEl = document.getElementById('btnMyStoryTrigger') || document.getElementById('btnAddMyStory');
+    const ringEl = document.getElementById('myStoryAvatarRing');
+    if (triggerEl) {
       if (myObj && myObj.stories && myObj.stories.length > 0) {
-        btnAddMyStory.classList.add('has-active-stories');
+        triggerEl.classList.add('has-active-stories');
+        if (ringEl) ringEl.classList.add('has-unviewed');
       } else {
-        btnAddMyStory.classList.remove('has-active-stories');
+        triggerEl.classList.remove('has-active-stories');
+        if (ringEl) ringEl.classList.remove('has-unviewed');
       }
     }
 
@@ -2731,16 +2737,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnAddMyStory) {
     btnAddMyStory.addEventListener('click', (e) => {
-      if (e.target.classList.contains('story-plus-badge')) {
+      e.stopPropagation();
+      if (e.target.classList.contains('story-plus-badge') || e.target.closest('.story-plus-badge') || e.target.id === 'btnMyStoryPlusBadge') {
         openStoryCreateModal();
         return;
       }
-      const myObj = cachedStories.find((s) => currentUser && s.user_id === currentUser.id);
+      const myObj = currentUser ? cachedStories.find((s) => s.user_id === currentUser.id) : null;
       if (myObj && myObj.stories && myObj.stories.length > 0) {
         openStoryViewer(myObj);
       } else {
         openStoryCreateModal();
       }
+    });
+  }
+
+  if (btnMyStoryPlusBadge) {
+    btnMyStoryPlusBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openStoryCreateModal();
+    });
+  }
+
+  if (btnStoryAddMore) {
+    btnStoryAddMore.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeStoryViewer();
+      openStoryCreateModal();
     });
   }
 
@@ -2756,7 +2778,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (storyTextInput) storyTextInput.value = '';
     selectedStoryColor = '#00a884';
     if (storyTextPreviewCard) storyTextPreviewCard.style.backgroundColor = selectedStoryColor;
-    document.querySelectorAll('.story-color-swatch').forEach((s, idx) => {
+    document.querySelectorAll('.story-color-swatch, .color-bubble').forEach((s, idx) => {
       s.classList.toggle('active', idx === 0);
     });
     if (btnStoryTabPhoto) btnStoryTabPhoto.click();
@@ -2769,6 +2791,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnCloseStoryCreate) btnCloseStoryCreate.addEventListener('click', closeStoryCreateModal);
   if (btnCancelStoryCreate) btnCancelStoryCreate.addEventListener('click', closeStoryCreateModal);
+
+  if (storyCreateModal) {
+    storyCreateModal.addEventListener('click', (e) => {
+      if (e.target === storyCreateModal) closeStoryCreateModal();
+    });
+  }
 
   if (btnStoryTabPhoto) {
     btnStoryTabPhoto.addEventListener('click', () => {
@@ -2805,9 +2833,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.querySelectorAll('.story-color-swatch').forEach((swatch) => {
+  document.querySelectorAll('.story-color-swatch, .color-bubble').forEach((swatch) => {
     swatch.addEventListener('click', () => {
-      document.querySelectorAll('.story-color-swatch').forEach((s) => s.classList.remove('active'));
+      document.querySelectorAll('.story-color-swatch, .color-bubble').forEach((s) => s.classList.remove('active'));
       swatch.classList.add('active');
       selectedStoryColor = swatch.dataset.color || '#00a884';
       if (storyTextPreviewCard) storyTextPreviewCard.style.backgroundColor = selectedStoryColor;
@@ -2837,6 +2865,7 @@ document.addEventListener('DOMContentLoaded', () => {
           .then((data) => {
             if (data.success) {
               socket.emit('post_story', {
+                userId: currentUser ? currentUser.id : null,
                 type: 'photo',
                 mediaUrl: data.fileUrl,
                 content: storyPhotoCaption ? storyPhotoCaption.value.trim() : ''
@@ -2868,6 +2897,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         socket.emit('post_story', {
+          userId: currentUser ? currentUser.id : null,
           type: 'text',
           content: text,
           bgColor: selectedStoryColor
@@ -2938,13 +2968,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (storyViewerAuthorName) storyViewerAuthorName.textContent = activeStoryUserObj.user_name || 'İstifadəçi';
     if (storyViewerTimeAgo) storyViewerTimeAgo.textContent = formatTime(story.created_at);
 
-    // Delete button & Views footer
+    // Delete button & Views footer & Add More
     if (isMyStory) {
       if (btnDeleteStory) btnDeleteStory.style.display = 'inline-flex';
+      if (btnStoryAddMore) btnStoryAddMore.style.display = 'inline-flex';
       if (storyViewerFooter) storyViewerFooter.style.display = 'flex';
       if (storyViewsCountText) storyViewsCountText.textContent = `👁️ ${story.views_count || 0} baxış`;
     } else {
       if (btnDeleteStory) btnDeleteStory.style.display = 'none';
+      if (btnStoryAddMore) btnStoryAddMore.style.display = 'none';
       if (storyViewerFooter) storyViewerFooter.style.display = 'none';
       // Mark as viewed on server
       socket.emit('view_story', { storyId: story.id, ownerId: activeStoryUserObj.user_id });
@@ -3006,6 +3038,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (btnCloseStoryViewer) btnCloseStoryViewer.addEventListener('click', closeStoryViewer);
+  if (storyViewerModal) {
+    storyViewerModal.addEventListener('click', (e) => {
+      if (e.target === storyViewerModal) closeStoryViewer();
+    });
+  }
 
   if (btnDeleteStory) {
     btnDeleteStory.addEventListener('click', () => {
