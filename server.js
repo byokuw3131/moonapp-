@@ -338,7 +338,7 @@ io.on('connection', (socket) => {
     socket.join(roomId);
 
     try {
-      const messages = await db.getRoomMessages(roomId, 150);
+      const messages = await db.getRoomMessages(roomId, 150, userId);
       if (userId) {
         await db.markRoomMessagesRead(roomId, userId);
         socket.to(roomId).emit('messages_read_receipt', { roomId, readerId: userId });
@@ -379,7 +379,8 @@ io.on('connection', (socket) => {
         timestamp: Date.now(),
         replyToId: msgData.replyToId || null,
         replyToText: msgData.replyToText || null,
-        replyToSender: msgData.replyToSender || null
+        replyToSender: msgData.replyToSender || null,
+        isViewOnce: !!msgData.isViewOnce
       };
 
       const savedMsg = await db.saveMessage(messageObj);
@@ -465,7 +466,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Delete a single message
+  // Delete a single message (fallback)
   socket.on('delete_message', async ({ messageId, roomId }, callback) => {
     try {
       const deleted = await db.deleteMessage(messageId);
@@ -479,6 +480,136 @@ io.on('connection', (socket) => {
         });
         if (callback) callback({ success: true });
       }
+    } catch (e) {
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  // Delete message for me (Özümdən sil)
+  socket.on('delete_message_for_me', async ({ messageId, roomId }, callback) => {
+    const userId = socketToUser.get(socket.id);
+    if (!userId) return;
+    try {
+      await db.deleteMessageForMe(userId, messageId);
+      socket.emit('message_deleted_for_me', { messageId, roomId });
+      if (callback) callback({ success: true });
+    } catch (e) {
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  // Delete message for everyone (Hamıdan sil)
+  socket.on('delete_message_for_everyone', async ({ messageId, roomId }, callback) => {
+    const userId = socketToUser.get(socket.id);
+    if (!userId) return;
+    try {
+      const updated = await db.deleteMessageForEveryone(messageId, userId);
+      io.to(roomId).emit('message_deleted_for_everyone', { messageId, roomId, message: updated });
+      io.to(roomId).emit('update_room_preview', {
+        roomId,
+        lastMessage: { content: '🚫 Bu mesaj silindi', timestamp: Date.now(), type: 'text', sender_name: '' }
+      });
+      if (callback) callback({ success: true, message: updated });
+    } catch (e) {
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  // Open View-Once image (Bir dəfəlik şəkil açıldı)
+  socket.on('open_view_once', async ({ messageId, roomId }, callback) => {
+    const userId = socketToUser.get(socket.id);
+    if (!userId) return;
+    try {
+      const updated = await db.openViewOnceMessage(messageId, userId);
+      io.to(roomId).emit('view_once_opened', { messageId, roomId });
+      if (callback) callback({ success: true, message: updated });
+    } catch (e) {
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  // 24-HOUR STORIES / STATUS HANDLERS
+  socket.on('post_story', async (storyData, callback) => {
+    const userId = socketToUser.get(socket.id);
+    if (!userId) {
+      if (callback) callback({ error: 'Oturum açıq deyil' });
+      return;
+    }
+    try {
+      const user = await db.getUser(userId);
+      const story = await db.createStory({
+        userId,
+        userName: user ? user.nickname : 'İstifadəçi',
+        userAvatar: user ? user.avatar : '🌙',
+        type: storyData.type || 'text',
+        content: storyData.content || '',
+        mediaUrl: storyData.mediaUrl || null,
+        bgColor: storyData.bgColor || '#00a884',
+        durationHours: 24
+      });
+      io.emit('new_story', { story });
+      if (callback) callback({ success: true, story });
+    } catch (e) {
+      console.error('post_story error:', e);
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  socket.on('get_stories', async (data, callback) => {
+    const userId = socketToUser.get(socket.id);
+    try {
+      const stories = await db.getActiveStories(userId);
+      if (callback) callback({ success: true, stories });
+    } catch (e) {
+      console.error('get_stories error:', e);
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  socket.on('view_story', async ({ storyId, ownerId }, callback) => {
+    const userId = socketToUser.get(socket.id);
+    if (!userId) return;
+    try {
+      const user = await db.getUser(userId);
+      const views = await db.viewStory({
+        storyId,
+        viewerId: userId,
+        viewerName: user ? user.nickname : 'İstifadəçi',
+        viewerAvatar: user ? user.avatar : '🌙'
+      });
+      if (ownerId && ownerId !== userId) {
+        io.to('user_' + ownerId).emit('story_viewed', {
+          storyId,
+          viewerId: userId,
+          viewerName: user ? user.nickname : 'İstifadəçi',
+          viewerAvatar: user ? user.avatar : '🌙',
+          viewsCount: views.length
+        });
+      }
+      if (callback) callback({ success: true, views });
+    } catch (e) {
+      console.error('view_story error:', e);
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  socket.on('delete_story', async ({ storyId }, callback) => {
+    const userId = socketToUser.get(socket.id);
+    if (!userId) return;
+    try {
+      await db.deleteStory(storyId, userId);
+      io.emit('story_deleted', { storyId, userId });
+      if (callback) callback({ success: true });
+    } catch (e) {
+      console.error('delete_story error:', e);
+      if (callback) callback({ error: e.message });
+    }
+  });
+
+  socket.on('get_story_viewers', async ({ storyId }, callback) => {
+    try {
+      const viewers = await db.getStoryViewers(storyId);
+      if (callback) callback({ success: true, viewers });
     } catch (e) {
       if (callback) callback({ error: e.message });
     }

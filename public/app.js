@@ -121,6 +121,70 @@ document.addEventListener('DOMContentLoaded', () => {
   const pinErrMsg = document.getElementById('pinErrMsg');
   const btnCheckPin = document.getElementById('btnCheckPin');
 
+  // Image Staging Bar & View Once Elements
+  const imageStagingBar = document.getElementById('imageStagingBar');
+  const stagingThumbImg = document.getElementById('stagingThumbImg');
+  const btnCancelStaging = document.getElementById('btnCancelStaging');
+  const stagingCaptionInput = document.getElementById('stagingCaptionInput');
+  const btnToggleViewOnce = document.getElementById('btnToggleViewOnce');
+  const btnSendStagedImage = document.getElementById('btnSendStagedImage');
+  let stagedImageFile = null;
+  let isViewOnceSelected = false;
+
+  // View-Once Modal
+  const viewOnceModal = document.getElementById('viewOnceModal');
+  const btnCloseViewOnce = document.getElementById('btnCloseViewOnce');
+  const viewOnceFullImage = document.getElementById('viewOnceFullImage');
+  let activeViewOnceMsg = null;
+
+  // Delete Message Modal
+  const deleteMsgModal = document.getElementById('deleteMsgModal');
+  const btnCloseDelModal = document.getElementById('btnCloseDelModal');
+  const btnDelForEveryone = document.getElementById('btnDelForEveryone');
+  const btnDelForMe = document.getElementById('btnDelForMe');
+  const btnCancelDelMsg = document.getElementById('btnCancelDelMsg');
+  let activeDeleteMsg = null;
+
+  // 24h Stories / Status Elements
+  const storiesTraySection = document.getElementById('storiesTraySection');
+  const btnAddMyStory = document.getElementById('btnAddMyStory');
+  const myStoryAvatarDisplay = document.getElementById('myStoryAvatarDisplay');
+  const storiesContactsTrack = document.getElementById('storiesContactsTrack');
+
+  const storyCreateModal = document.getElementById('storyCreateModal');
+  const btnCloseStoryCreate = document.getElementById('btnCloseStoryCreate');
+  const btnCancelStoryCreate = document.getElementById('btnCancelStoryCreate');
+  const btnStoryTabPhoto = document.getElementById('btnStoryTabPhoto');
+  const btnStoryTabText = document.getElementById('btnStoryTabText');
+  const storyTabPanePhoto = document.getElementById('storyTabPanePhoto');
+  const storyTabPaneText = document.getElementById('storyTabPaneText');
+  const storyPhotoDropzone = document.getElementById('storyPhotoDropzone');
+  const storyPhotoPreview = document.getElementById('storyPhotoPreview');
+  const storyDropzoneHint = document.getElementById('storyDropzoneHint');
+  const storyImageFileInput = document.getElementById('storyImageFileInput');
+  const storyPhotoCaption = document.getElementById('storyPhotoCaption');
+  const storyTextPreviewCard = document.getElementById('storyTextPreviewCard');
+  const storyTextInput = document.getElementById('storyTextInput');
+  const btnPublishStory = document.getElementById('btnPublishStory');
+  let selectedStoryColor = '#00a884';
+  let stagedStoryPhoto = null;
+
+  const storyViewerModal = document.getElementById('storyViewerModal');
+  const storyProgressFill = document.getElementById('storyProgressFill');
+  const storyViewerAvatar = document.getElementById('storyViewerAvatar');
+  const storyViewerAuthorName = document.getElementById('storyViewerAuthorName');
+  const storyViewerTimeAgo = document.getElementById('storyViewerTimeAgo');
+  const btnDeleteStory = document.getElementById('btnDeleteStory');
+  const btnCloseStoryViewer = document.getElementById('btnCloseStoryViewer');
+  const storyViewerBody = document.getElementById('storyViewerBody');
+  const storyViewerFooter = document.getElementById('storyViewerFooter');
+  const btnStoryViewsToggle = document.getElementById('btnStoryViewsToggle');
+  const storyViewsCountText = document.getElementById('storyViewsCountText');
+  let activeStoryUserObj = null;
+  let activeStoryIndex = 0;
+  let storyTimer = null;
+  let storyProgressInterval = null;
+
   // Calls DOM
   const callOverlay = document.getElementById('callOverlay');
   const videoScreens = document.getElementById('videoScreens');
@@ -395,12 +459,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update My Profile UI
         renderAvatar(currentUser.avatar, myAvatarDisplay);
+        if (myStoryAvatarDisplay) renderAvatar(currentUser.avatar, myStoryAvatarDisplay);
         myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
         myUsernameDisplay.textContent = `@${currentUser.username}`;
 
         // Load rooms
         rooms = res.rooms || [];
         renderChatList();
+
+        // Load 24h stories
+        fetchStories();
 
         // Auto open Lounge room if no chat selected
         if (!currentRoom) {
@@ -892,7 +960,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Message Content by Type
     let contentHtml = '';
-    if (msg.type === 'image') {
+    if (msg.is_deleted_for_everyone) {
+      contentHtml = `<div class="msg-deleted-notice"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg> Bu mesaj silindi</div>`;
+    } else if (msg.is_view_once) {
+      const isOpened = msg.view_once_opened == 1;
+      contentHtml = `
+        <div class="view-once-bubble-card ${isOpened ? 'opened' : ''}" data-msg-id="${msg.id}" data-file-url="${msg.file_url || ''}" data-is-opened="${isOpened}">
+          <span class="view-once-circle-badge">1</span>
+          <span class="view-once-bubble-text">${isOpened ? 'Fotoşəkil (Açıldı)' : 'Fotoşəkil'}</span>
+        </div>`;
+      if (msg.content) {
+        contentHtml += `<div class="msg-text-content" style="margin-top: 4px;">${escapeHtml(msg.content)}</div>`;
+      }
+    } else if (msg.type === 'image') {
       contentHtml = `
         <div class="msg-image-wrap">
           <img src="${msg.file_url}" alt="Fotoşəkil" loading="lazy" onclick="window.open('${msg.file_url}', '_blank')">
@@ -973,10 +1053,10 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="reactions-strip" id="reactions_${msg.id}"></div>
         <div class="bubble-quick-actions">
-          <button class="action-mini-btn" title="Cavabla" data-action="reply">↩️</button>
-          <button class="action-mini-btn" title="Reaksiya" data-action="react">❤️</button>
-          ${isMe ? `<button class="action-mini-btn" title="Redaktə et" data-action="edit">✏️</button>` : ''}
-          ${isMe ? `<button class="action-mini-btn danger" title="Sil" data-action="delete">🗑️</button>` : ''}
+          ${!msg.is_deleted_for_everyone ? `<button class="action-mini-btn" title="Cavabla" data-action="reply">↩️</button>` : ''}
+          ${!msg.is_deleted_for_everyone ? `<button class="action-mini-btn" title="Reaksiya" data-action="react">❤️</button>` : ''}
+          ${isMe && msg.type === 'text' && !msg.is_deleted_for_everyone ? `<button class="action-mini-btn" title="Redaktə et" data-action="edit">✏️</button>` : ''}
+          ${!msg.is_deleted_for_everyone ? `<button class="action-mini-btn danger" title="Sil" data-action="delete">🗑️</button>` : ''}
         </div>
       </div>
     `;
@@ -985,29 +1065,40 @@ document.addEventListener('DOMContentLoaded', () => {
     renderReactions(msg.id, msg.reactions, bubble.querySelector(`#reactions_${msg.id}`));
 
     // Event listeners on bubble actions
-    bubble.querySelector('[data-action="reply"]').addEventListener('click', () => {
-      openReplyBanner(msg);
-    });
+    const replyBtn = bubble.querySelector('[data-action="reply"]');
+    if (replyBtn) {
+      replyBtn.addEventListener('click', () => openReplyBanner(msg));
+    }
 
-    bubble.querySelector('[data-action="react"]').addEventListener('click', () => {
-      socket.emit('toggle_reaction', { messageId: msg.id, reaction: '❤️', roomId: msg.room_id });
-    });
+    const reactBtn = bubble.querySelector('[data-action="react"]');
+    if (reactBtn) {
+      reactBtn.addEventListener('click', () => {
+        socket.emit('toggle_reaction', { messageId: msg.id, reaction: '❤️', roomId: msg.room_id });
+      });
+    }
 
-    if (isMe) {
-      const editBtn = bubble.querySelector('[data-action="edit"]');
-      if (editBtn && msg.type === 'text') {
-        editBtn.addEventListener('click', () => {
-          openEditBanner(msg);
-        });
-      }
-      const delBtn = bubble.querySelector('[data-action="delete"]');
-      if (delBtn) {
-        delBtn.addEventListener('click', () => {
-          if (confirm('Bu mesajı silmək istəyirsiniz?')) {
-            socket.emit('delete_message', { messageId: msg.id, roomId: msg.room_id });
-          }
-        });
-      }
+    const editBtn = bubble.querySelector('[data-action="edit"]');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => openEditBanner(msg));
+    }
+
+    const delBtn = bubble.querySelector('[data-action="delete"]');
+    if (delBtn) {
+      delBtn.addEventListener('click', () => openDeleteMessageModal(msg));
+    }
+
+    // View Once card click listener
+    const viewOnceCard = bubble.querySelector('.view-once-bubble-card');
+    if (viewOnceCard) {
+      viewOnceCard.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpened = viewOnceCard.dataset.isOpened === 'true' || viewOnceCard.classList.contains('opened');
+        if (isOpened) {
+          showToast('Bu bir dəfəlik şəkil artıq açılıb və silinib.');
+          return;
+        }
+        openViewOnceModal(msg);
+      });
     }
 
     if (msg.type === 'voice' || msg.type === 'audio') {
@@ -1414,7 +1505,91 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   });
 
-  imageFileInput.addEventListener('change', () => uploadAndSendFile(imageFileInput.files[0], 'image'));
+  // Image Selection & View Once Staging
+  imageFileInput.addEventListener('change', () => {
+    const file = imageFileInput.files[0];
+    if (!file) return;
+    stagedImageFile = file;
+    isViewOnceSelected = false;
+    btnToggleViewOnce.classList.remove('active');
+    btnToggleViewOnce.title = 'Bir dəfəlik baxış (Qarşı tərəf ancaq 1 dəfə baxa bilər)';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      stagingThumbImg.src = e.target.result;
+      imageStagingBar.style.display = 'flex';
+      stagingCaptionInput.value = '';
+      stagingCaptionInput.focus();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  btnToggleViewOnce.addEventListener('click', () => {
+    isViewOnceSelected = !isViewOnceSelected;
+    btnToggleViewOnce.classList.toggle('active', isViewOnceSelected);
+    if (isViewOnceSelected) {
+      showToast('👁️ Şəkil 1 dəfə baxılmaq üçün təyin edildi');
+    } else {
+      showToast('Daimi baxış rejimi təyin edildi');
+    }
+  });
+
+  btnCancelStaging.addEventListener('click', () => {
+    stagedImageFile = null;
+    isViewOnceSelected = false;
+    btnToggleViewOnce.classList.remove('active');
+    imageStagingBar.style.display = 'none';
+    stagingThumbImg.src = '';
+    imageFileInput.value = '';
+  });
+
+  stagingCaptionInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      btnSendStagedImage.click();
+    }
+  });
+
+  btnSendStagedImage.addEventListener('click', () => {
+    if (!stagedImageFile || !currentRoom) return;
+    const fileToSend = stagedImageFile;
+    const captionToSend = stagingCaptionInput.value.trim();
+    const isViewOnce = isViewOnceSelected;
+
+    // Reset staging UI immediately
+    stagedImageFile = null;
+    isViewOnceSelected = false;
+    btnToggleViewOnce.classList.remove('active');
+    imageStagingBar.style.display = 'none';
+    stagingThumbImg.src = '';
+    imageFileInput.value = '';
+
+    const formData = new FormData();
+    formData.append('file', fileToSend);
+
+    fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          socket.emit('send_message', {
+            roomId: currentRoom.id,
+            type: 'image',
+            fileUrl: data.fileUrl,
+            fileName: data.fileName,
+            fileSize: data.fileSize,
+            content: captionToSend,
+            isViewOnce: isViewOnce
+          }, () => MoonAudio.playSentSound());
+        } else {
+          alert('Yükləmə xətası: ' + data.error);
+        }
+      })
+      .catch((e) => alert('Yükləmə xətası: ' + e.message));
+  });
+
   generalFileInput.addEventListener('change', () => uploadAndSendFile(generalFileInput.files[0], 'file'));
 
   function uploadAndSendFile(file, type) {
@@ -1557,6 +1732,58 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('message_deleted', ({ messageId }) => {
     const el = document.getElementById(`msg_${messageId}`);
     if (el) el.remove();
+  });
+
+  socket.on('message_deleted_for_me', ({ messageId }) => {
+    const el = document.getElementById(`msg_${messageId}`);
+    if (el) el.remove();
+  });
+
+  socket.on('message_deleted_for_everyone', ({ messageId, message }) => {
+    const el = document.getElementById(`msg_${messageId}`);
+    if (el) {
+      const inner = el.querySelector('.bubble-inner');
+      if (inner) {
+        inner.innerHTML = `
+          <div class="msg-deleted-notice">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg> Bu mesaj silindi
+          </div>
+          <div class="msg-meta-row">
+            <span class="msg-time">${formatTime(message ? message.timestamp : Date.now())}</span>
+          </div>
+        `;
+      }
+    }
+  });
+
+  socket.on('view_once_opened', ({ messageId }) => {
+    const card = document.querySelector(`.view-once-bubble-card[data-msg-id="${messageId}"]`);
+    if (card) {
+      card.classList.add('opened');
+      card.dataset.isOpened = 'true';
+      const txt = card.querySelector('.view-once-bubble-text');
+      if (txt) txt.textContent = 'Fotoşəkil (Açıldı)';
+    }
+  });
+
+  socket.on('new_story', () => {
+    fetchStories();
+  });
+
+  socket.on('story_deleted', () => {
+    fetchStories();
+  });
+
+  socket.on('story_viewed', ({ storyId, viewsCount }) => {
+    if (activeStoryUserObj && currentUser && activeStoryUserObj.user_id === currentUser.id) {
+      const currentStory = activeStoryUserObj.stories[activeStoryIndex];
+      if (currentStory && currentStory.id === storyId) {
+        currentStory.views_count = viewsCount;
+        if (storyViewsCountText) storyViewsCountText.textContent = `👁️ ${viewsCount} baxış`;
+      }
+    }
   });
 
   socket.on('message_edited', ({ message }) => {
@@ -1764,6 +1991,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = res.user;
         localStorage.setItem('moonapp_user', JSON.stringify(currentUser));
         renderAvatar(currentUser.avatar, myAvatarDisplay);
+        if (myStoryAvatarDisplay) renderAvatar(currentUser.avatar, myStoryAvatarDisplay);
         myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
         profileModal.style.display = 'none';
       }
@@ -2074,6 +2302,489 @@ document.addEventListener('DOMContentLoaded', () => {
       iceCandidateQueue.push(candidate);
     }
   });
+
+  // ==========================================
+  // VIEW-ONCE PHOTO VIEWER CONTROLLER
+  // ==========================================
+  function openViewOnceModal(msg) {
+    if (!msg || !msg.file_url) return;
+    activeViewOnceMsg = msg;
+    viewOnceFullImage.src = msg.file_url;
+    viewOnceModal.style.display = 'flex';
+  }
+
+  function closeViewOnceModal() {
+    viewOnceModal.style.display = 'none';
+    viewOnceFullImage.src = '';
+
+    if (activeViewOnceMsg && currentRoom) {
+      const msgId = activeViewOnceMsg.id;
+      // Tell server it has been opened
+      socket.emit('open_view_once', {
+        messageId: msgId,
+        roomId: currentRoom.id
+      });
+
+      // Update card UI immediately
+      const card = document.querySelector(`.view-once-bubble-card[data-msg-id="${msgId}"]`);
+      if (card) {
+        card.classList.add('opened');
+        card.dataset.isOpened = 'true';
+        const txt = card.querySelector('.view-once-bubble-text');
+        if (txt) txt.textContent = 'Fotoşəkil (Açıldı)';
+      }
+      activeViewOnceMsg = null;
+    }
+  }
+
+  if (btnCloseViewOnce) {
+    btnCloseViewOnce.addEventListener('click', closeViewOnceModal);
+  }
+
+  // ==========================================
+  // DELETE MESSAGE MODAL (HAMIDAN / MƏNDƏN SİL)
+  // ==========================================
+  function openDeleteMessageModal(msg) {
+    if (!msg || !currentRoom) return;
+    activeDeleteMsg = msg;
+    const isMe = currentUser && msg.sender_id === currentUser.id;
+
+    if (isMe && !msg.is_deleted_for_everyone) {
+      btnDelForEveryone.style.display = 'block';
+    } else {
+      btnDelForEveryone.style.display = 'none';
+    }
+
+    deleteMsgModal.style.display = 'flex';
+  }
+
+  function closeDeleteMessageModal() {
+    deleteMsgModal.style.display = 'none';
+    activeDeleteMsg = null;
+  }
+
+  if (btnCloseDelModal) btnCloseDelModal.addEventListener('click', closeDeleteMessageModal);
+  if (btnCancelDelMsg) btnCancelDelMsg.addEventListener('click', closeDeleteMessageModal);
+
+  if (btnDelForEveryone) {
+    btnDelForEveryone.addEventListener('click', () => {
+      if (!activeDeleteMsg || !currentRoom) return;
+      const msgId = activeDeleteMsg.id;
+      socket.emit('delete_message_for_everyone', {
+        messageId: msgId,
+        roomId: currentRoom.id
+      }, (res) => {
+        if (res && !res.success) {
+          alert(res.error || 'Mesajı silmək mümkün olmadı.');
+        }
+      });
+      closeDeleteMessageModal();
+    });
+  }
+
+  if (btnDelForMe) {
+    btnDelForMe.addEventListener('click', () => {
+      if (!activeDeleteMsg || !currentRoom) return;
+      const msgId = activeDeleteMsg.id;
+      socket.emit('delete_message_for_me', {
+        messageId: msgId,
+        roomId: currentRoom.id
+      }, (res) => {
+        if (res && res.success) {
+          const el = document.getElementById(`msg_${msgId}`);
+          if (el) el.remove();
+        } else {
+          alert(res?.error || 'Mesajı gizlətmək mümkün olmadı.');
+        }
+      });
+      closeDeleteMessageModal();
+    });
+  }
+
+  // ==========================================
+  // 24H STORIES (STATUS) CONTROLLER
+  // ==========================================
+  let cachedStories = [];
+
+  function fetchStories() {
+    if (!currentUser) return;
+    socket.emit('get_stories', {}, (res) => {
+      if (res && res.success && res.stories) {
+        renderStories(res.stories);
+      }
+    });
+  }
+
+  function renderStories(storiesList) {
+    cachedStories = storiesList || [];
+    if (!currentUser) return;
+
+    // Check my stories
+    const myObj = cachedStories.find((s) => s.user_id === currentUser.id);
+    if (btnAddMyStory) {
+      if (myObj && myObj.stories && myObj.stories.length > 0) {
+        btnAddMyStory.classList.add('has-active-stories');
+      } else {
+        btnAddMyStory.classList.remove('has-active-stories');
+      }
+    }
+
+    if (!storiesContactsTrack) return;
+    storiesContactsTrack.innerHTML = '';
+
+    const contacts = cachedStories.filter((s) => s.user_id !== currentUser.id && s.stories && s.stories.length > 0);
+    contacts.forEach((contact) => {
+      const item = document.createElement('div');
+      item.className = `story-bubble-item ${contact.has_unviewed ? 'has-unviewed' : ''}`;
+      item.title = `${contact.user_name} statusu`;
+
+      const avatarCont = document.createElement('div');
+      avatarCont.className = 'story-avatar-container';
+
+      const avatarInner = document.createElement('div');
+      avatarInner.className = 'story-avatar-inner';
+      renderAvatar(contact.user_avatar, avatarInner);
+      avatarCont.appendChild(avatarInner);
+
+      const label = document.createElement('span');
+      label.className = 'story-bubble-label';
+      label.textContent = contact.user_name;
+
+      item.appendChild(avatarCont);
+      item.appendChild(label);
+
+      item.addEventListener('click', () => {
+        openStoryViewer(contact);
+      });
+
+      storiesContactsTrack.appendChild(item);
+    });
+  }
+
+  if (btnAddMyStory) {
+    btnAddMyStory.addEventListener('click', (e) => {
+      if (e.target.classList.contains('story-plus-badge')) {
+        openStoryCreateModal();
+        return;
+      }
+      const myObj = cachedStories.find((s) => currentUser && s.user_id === currentUser.id);
+      if (myObj && myObj.stories && myObj.stories.length > 0) {
+        openStoryViewer(myObj);
+      } else {
+        openStoryCreateModal();
+      }
+    });
+  }
+
+  function openStoryCreateModal() {
+    stagedStoryPhoto = null;
+    if (storyImageFileInput) storyImageFileInput.value = '';
+    if (storyPhotoPreview) {
+      storyPhotoPreview.src = '';
+      storyPhotoPreview.style.display = 'none';
+    }
+    if (storyDropzoneHint) storyDropzoneHint.style.display = 'flex';
+    if (storyPhotoCaption) storyPhotoCaption.value = '';
+    if (storyTextInput) storyTextInput.value = '';
+    selectedStoryColor = '#00a884';
+    if (storyTextPreviewCard) storyTextPreviewCard.style.backgroundColor = selectedStoryColor;
+    document.querySelectorAll('.story-color-swatch').forEach((s, idx) => {
+      s.classList.toggle('active', idx === 0);
+    });
+    if (btnStoryTabPhoto) btnStoryTabPhoto.click();
+    if (storyCreateModal) storyCreateModal.style.display = 'flex';
+  }
+
+  function closeStoryCreateModal() {
+    if (storyCreateModal) storyCreateModal.style.display = 'none';
+  }
+
+  if (btnCloseStoryCreate) btnCloseStoryCreate.addEventListener('click', closeStoryCreateModal);
+  if (btnCancelStoryCreate) btnCancelStoryCreate.addEventListener('click', closeStoryCreateModal);
+
+  if (btnStoryTabPhoto) {
+    btnStoryTabPhoto.addEventListener('click', () => {
+      btnStoryTabPhoto.classList.add('active');
+      if (btnStoryTabText) btnStoryTabText.classList.remove('active');
+      if (storyTabPanePhoto) storyTabPanePhoto.style.display = 'block';
+      if (storyTabPaneText) storyTabPaneText.style.display = 'none';
+    });
+  }
+
+  if (btnStoryTabText) {
+    btnStoryTabText.addEventListener('click', () => {
+      btnStoryTabText.classList.add('active');
+      if (btnStoryTabPhoto) btnStoryTabPhoto.classList.remove('active');
+      if (storyTabPaneText) storyTabPaneText.style.display = 'block';
+      if (storyTabPanePhoto) storyTabPanePhoto.style.display = 'none';
+    });
+  }
+
+  if (storyImageFileInput) {
+    storyImageFileInput.addEventListener('change', () => {
+      const file = storyImageFileInput.files[0];
+      if (!file) return;
+      stagedStoryPhoto = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (storyPhotoPreview) {
+          storyPhotoPreview.src = e.target.result;
+          storyPhotoPreview.style.display = 'block';
+        }
+        if (storyDropzoneHint) storyDropzoneHint.style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.querySelectorAll('.story-color-swatch').forEach((swatch) => {
+    swatch.addEventListener('click', () => {
+      document.querySelectorAll('.story-color-swatch').forEach((s) => s.classList.remove('active'));
+      swatch.classList.add('active');
+      selectedStoryColor = swatch.dataset.color || '#00a884';
+      if (storyTextPreviewCard) storyTextPreviewCard.style.backgroundColor = selectedStoryColor;
+    });
+  });
+
+  if (btnPublishStory) {
+    btnPublishStory.addEventListener('click', () => {
+      const isPhotoTab = btnStoryTabPhoto && btnStoryTabPhoto.classList.contains('active');
+      btnPublishStory.disabled = true;
+
+      if (isPhotoTab) {
+        if (!stagedStoryPhoto) {
+          alert('Zəhmət olmasa status üçün bir şəkil seçin.');
+          btnPublishStory.disabled = false;
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', stagedStoryPhoto);
+
+        fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.success) {
+              socket.emit('post_story', {
+                type: 'photo',
+                mediaUrl: data.fileUrl,
+                content: storyPhotoCaption ? storyPhotoCaption.value.trim() : ''
+              }, (res) => {
+                btnPublishStory.disabled = false;
+                if (res && res.success) {
+                  closeStoryCreateModal();
+                  showToast('Foto statusunuz paylaşıldı! 📸');
+                  fetchStories();
+                } else {
+                  alert(res?.error || 'Status paylaşıla bilmədi.');
+                }
+              });
+            } else {
+              btnPublishStory.disabled = false;
+              alert('Şəkil yüklənə bilmədi: ' + data.error);
+            }
+          })
+          .catch((err) => {
+            btnPublishStory.disabled = false;
+            alert('Xəta: ' + err.message);
+          });
+      } else {
+        const text = storyTextInput ? storyTextInput.value.trim() : '';
+        if (!text) {
+          alert('Zəhmət olmasa status mətni daxil edin.');
+          btnPublishStory.disabled = false;
+          return;
+        }
+
+        socket.emit('post_story', {
+          type: 'text',
+          content: text,
+          bgColor: selectedStoryColor
+        }, (res) => {
+          btnPublishStory.disabled = false;
+          if (res && res.success) {
+            closeStoryCreateModal();
+            showToast('Mətn statusunuz paylaşıldı! ✍️');
+            fetchStories();
+          } else {
+            alert(res?.error || 'Status paylaşıla bilmədi.');
+          }
+        });
+      }
+    });
+  }
+
+  function openStoryViewer(userObj) {
+    if (!userObj || !userObj.stories || userObj.stories.length === 0) return;
+    activeStoryUserObj = userObj;
+    activeStoryIndex = 0;
+    if (storyViewerModal) storyViewerModal.style.display = 'flex';
+    renderActiveStory();
+  }
+
+  function closeStoryViewer() {
+    clearInterval(storyProgressInterval);
+    storyProgressInterval = null;
+    if (storyViewerModal) storyViewerModal.style.display = 'none';
+    if (storyViewerBody) storyViewerBody.innerHTML = '';
+    activeStoryUserObj = null;
+    activeStoryIndex = 0;
+    fetchStories();
+  }
+
+  function nextStory() {
+    if (!activeStoryUserObj || !activeStoryUserObj.stories) return;
+    if (activeStoryIndex < activeStoryUserObj.stories.length - 1) {
+      activeStoryIndex++;
+      renderActiveStory();
+    } else {
+      closeStoryViewer();
+    }
+  }
+
+  function prevStory() {
+    if (!activeStoryUserObj || !activeStoryUserObj.stories) return;
+    if (activeStoryIndex > 0) {
+      activeStoryIndex--;
+      renderActiveStory();
+    }
+  }
+
+  function renderActiveStory() {
+    clearInterval(storyProgressInterval);
+    storyProgressInterval = null;
+
+    if (!activeStoryUserObj || !activeStoryUserObj.stories || !activeStoryUserObj.stories[activeStoryIndex]) {
+      closeStoryViewer();
+      return;
+    }
+
+    const story = activeStoryUserObj.stories[activeStoryIndex];
+    const isMyStory = currentUser && activeStoryUserObj.user_id === currentUser.id;
+
+    // Header info
+    if (storyViewerAvatar) renderAvatar(activeStoryUserObj.user_avatar, storyViewerAvatar);
+    if (storyViewerAuthorName) storyViewerAuthorName.textContent = activeStoryUserObj.user_name || 'İstifadəçi';
+    if (storyViewerTimeAgo) storyViewerTimeAgo.textContent = formatTime(story.created_at);
+
+    // Delete button & Views footer
+    if (isMyStory) {
+      if (btnDeleteStory) btnDeleteStory.style.display = 'inline-flex';
+      if (storyViewerFooter) storyViewerFooter.style.display = 'flex';
+      if (storyViewsCountText) storyViewsCountText.textContent = `👁️ ${story.views_count || 0} baxış`;
+    } else {
+      if (btnDeleteStory) btnDeleteStory.style.display = 'none';
+      if (storyViewerFooter) storyViewerFooter.style.display = 'none';
+      // Mark as viewed on server
+      socket.emit('view_story', { storyId: story.id, ownerId: activeStoryUserObj.user_id });
+      story.is_viewed = true;
+    }
+
+    // Body content
+    if (storyViewerBody) {
+      storyViewerBody.innerHTML = '';
+      if (story.type === 'photo') {
+        const img = document.createElement('img');
+        img.src = story.media_url;
+        img.alt = 'Status fotosu';
+        storyViewerBody.appendChild(img);
+
+        if (story.content) {
+          const cap = document.createElement('div');
+          cap.className = 'story-photo-caption-text';
+          cap.textContent = story.content;
+          storyViewerBody.appendChild(cap);
+        }
+      } else {
+        const textCard = document.createElement('div');
+        textCard.className = 'story-text-body-card';
+        textCard.style.backgroundColor = story.bg_color || '#00a884';
+        textCard.textContent = story.content;
+        storyViewerBody.appendChild(textCard);
+      }
+    }
+
+    // Progress bar animation (5 seconds)
+    const duration = 5000;
+    const startTime = Date.now();
+    if (storyProgressFill) storyProgressFill.style.width = '0%';
+
+    storyProgressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(100, (elapsed / duration) * 100);
+      if (storyProgressFill) storyProgressFill.style.width = `${pct}%`;
+      if (elapsed >= duration) {
+        clearInterval(storyProgressInterval);
+        storyProgressInterval = null;
+        nextStory();
+      }
+    }, 50);
+  }
+
+  // Story tap left / right navigation
+  if (storyViewerBody) {
+    storyViewerBody.addEventListener('click', (e) => {
+      const rect = storyViewerBody.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      if (clickX < rect.width * 0.35) {
+        prevStory();
+      } else {
+        nextStory();
+      }
+    });
+  }
+
+  if (btnCloseStoryViewer) btnCloseStoryViewer.addEventListener('click', closeStoryViewer);
+
+  if (btnDeleteStory) {
+    btnDeleteStory.addEventListener('click', () => {
+      if (!activeStoryUserObj || !activeStoryUserObj.stories) return;
+      const story = activeStoryUserObj.stories[activeStoryIndex];
+      if (!story) return;
+
+      if (!confirm('Bu statusu silmək istədiyinizə əminsiniz?')) return;
+
+      socket.emit('delete_story', { storyId: story.id }, (res) => {
+        if (res && res.success) {
+          activeStoryUserObj.stories.splice(activeStoryIndex, 1);
+          if (activeStoryUserObj.stories.length === 0) {
+            closeStoryViewer();
+          } else {
+            if (activeStoryIndex >= activeStoryUserObj.stories.length) {
+              activeStoryIndex = activeStoryUserObj.stories.length - 1;
+            }
+            renderActiveStory();
+          }
+          fetchStories();
+          showToast('Status silindi.');
+        } else {
+          alert(res?.error || 'Status silinə bilmədi.');
+        }
+      });
+    });
+  }
+
+  if (btnStoryViewsToggle) {
+    btnStoryViewsToggle.addEventListener('click', () => {
+      if (!activeStoryUserObj || !activeStoryUserObj.stories) return;
+      const story = activeStoryUserObj.stories[activeStoryIndex];
+      if (!story) return;
+
+      socket.emit('get_story_viewers', { storyId: story.id }, (res) => {
+        if (res && res.success && res.viewers) {
+          if (res.viewers.length === 0) {
+            showToast('Hələ heç kim bu statusa baxmayıb.');
+          } else {
+            const list = res.viewers.map((v) => `${v.viewer_name} (${formatTime(v.viewed_at)})`).join('\n');
+            alert('Statusunuza baxan istifadəçilər:\n\n' + list);
+          }
+        }
+      });
+    });
+  }
 
   // Utilities
   function escapeHtml(text) {

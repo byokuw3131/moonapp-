@@ -52,6 +52,22 @@
         </div>
       </div>
 
+      <!-- 24h Stories / Status Tray -->
+      <div class="stories-tray-section" id="storiesTraySection">
+        <div class="stories-tray-scroll" id="storiesTrayScroll">
+          <div class="story-bubble-item add-my-story" id="btnAddMyStory" title="Status əlavə et">
+            <div class="story-avatar-container">
+              <div class="story-avatar-inner" id="myStoryAvatarDisplay">🌙</div>
+              <span class="story-plus-badge">+</span>
+            </div>
+            <span class="story-bubble-label">Statusum</span>
+          </div>
+          <div class="stories-contacts-track" id="storiesContactsTrack">
+            <!-- Dynamically populated contacts with active stories -->
+          </div>
+        </div>
+      </div>
+
       <!-- Filter Pills -->
       <div class="filter-pills-bar">
         <button class="filter-pill active" data-filter="all">Hamısı</button>
@@ -160,6 +176,23 @@
 
         <!-- Bottom Chat Input Panel -->
         <footer class="chat-input-bar">
+          <!-- Image Staging Preview with View Once (1) Toggle -->
+          <div class="image-staging-bar" id="imageStagingBar" style="display: none;">
+            <div class="staging-thumb-box">
+              <img id="stagingThumbImg" src="" alt="Seçilmiş şəkil">
+              <button class="staging-close-btn" id="btnCancelStaging" title="Ləğv et">✕</button>
+            </div>
+            <div class="staging-input-row">
+              <input type="text" id="stagingCaptionInput" placeholder="Açıqlama əlavə edin..." class="staging-caption-field">
+              <button type="button" class="view-once-pill-btn" id="btnToggleViewOnce" title="Bir dəfəlik baxış (View Once)">
+                <span class="view-once-badge-circle">1</span>
+              </button>
+              <button type="button" class="staging-send-action-btn" id="btnSendStagedImage" title="Göndər">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+              </button>
+            </div>
+          </div>
+
           <!-- Normal Input State -->
           <div class="input-normal-mode" id="inputNormalMode">
             <button class="bar-icon-btn" id="btnToggleEmoji" title="Emoji">
@@ -363,6 +396,127 @@
         <div class="login-hint">İlk dəfə daxil olursunuzsa, təyin etdiyiniz PİN kod sizin daimi təhlükəsizlik kodunuz olacaq.</div>
         <button type="submit" class="btn-primary login-btn">Daxil Ol</button>
       </form>
+    </div>
+  </div>
+
+  <!-- STORY CREATE MODAL -->
+  <div class="modal-backdrop" id="storyCreateModal" style="display: none;">
+    <div class="dialog-box">
+      <div class="dialog-header">
+        <h3>📸 24 Saatlıq Status Paylaş</h3>
+        <button class="close-x-btn" id="btnCloseStoryCreate">✕</button>
+      </div>
+      <div class="story-create-tabs">
+        <button type="button" class="story-tab-btn active" id="btnStoryTabPhoto">🖼️ Foto Status</button>
+        <button type="button" class="story-tab-btn" id="btnStoryTabText">✍️ Mətn Statusu</button>
+      </div>
+      <!-- Tab 1: Photo Story -->
+      <div class="story-tab-pane" id="storyTabPanePhoto">
+        <div class="story-photo-dropzone" id="storyPhotoDropzone" onclick="document.getElementById('storyImageFileInput').click()">
+          <img id="storyPhotoPreview" src="" alt="Seçilmiş şəkil" style="display: none;">
+          <div class="dropzone-hint" id="storyDropzoneHint">
+            <span style="font-size: 36px;">📷</span>
+            <span>Şəkil seçmək üçün toxunun</span>
+          </div>
+        </div>
+        <input type="file" id="storyImageFileInput" accept="image/*" style="display: none;">
+        <input type="text" id="storyPhotoCaption" placeholder="Açıqlama əlavə edin (istəyə görə)..." class="pin-field" style="margin-top: 14px; text-align: left;">
+      </div>
+      <!-- Tab 2: Text Story -->
+      <div class="story-tab-pane" id="storyTabPaneText" style="display: none;">
+        <div class="story-text-preview" id="storyTextPreviewCard" style="background-color: #00a884;">
+          <textarea id="storyTextInput" placeholder="Statusunuzu bura yazın..." maxlength="250"></textarea>
+        </div>
+        <div class="story-color-palette">
+          <span class="color-label">Arxa fon rəngi:</span>
+          <div class="color-bubbles-row">
+            <button type="button" class="color-bubble active" data-color="#00a884" style="background: #00a884;"></button>
+            <button type="button" class="color-bubble" data-color="#8e24aa" style="background: #8e24aa;"></button>
+            <button type="button" class="color-bubble" data-color="#1e88e5" style="background: #1e88e5;"></button>
+            <button type="button" class="color-bubble" data-color="#e53935" style="background: #e53935;"></button>
+            <button type="button" class="color-bubble" data-color="#f57c00" style="background: #f57c00;"></button>
+            <button type="button" class="color-bubble" data-color="#37474f" style="background: #37474f;"></button>
+          </div>
+        </div>
+      </div>
+      <div class="form-footer-actions" style="margin-top: 20px;">
+        <button type="button" class="btn-modal-cancel" id="btnCancelStoryCreate">Ləğv Et</button>
+        <button type="button" class="btn-primary btn-modal-save" id="btnPublishStory">🚀 Statusu Paylaş</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STORY VIEWER FULLSCREEN MODAL -->
+  <div class="modal-backdrop story-viewer-backdrop" id="storyViewerModal" style="display: none;">
+    <div class="story-viewer-container">
+      <!-- Progress Bar Track -->
+      <div class="story-progress-bar-track" id="storyProgressBarTrack">
+        <div class="story-progress-fill" id="storyProgressFill"></div>
+      </div>
+      <!-- Header -->
+      <div class="story-viewer-header">
+        <div class="story-viewer-author">
+          <div class="avatar-box" id="storyViewerAvatar" style="width: 40px; height: 40px; font-size: 20px;">🌙</div>
+          <div class="story-author-details">
+            <span class="story-author-name" id="storyViewerAuthorName">İstifadəçi</span>
+            <span class="story-time-ago" id="storyViewerTimeAgo">İndi</span>
+          </div>
+        </div>
+        <div class="story-header-actions">
+          <button class="story-delete-btn" id="btnDeleteStory" title="Statusu sil" style="display: none;">🗑️</button>
+          <button class="story-close-btn" id="btnCloseStoryViewer" title="Bağla">✕</button>
+        </div>
+      </div>
+      <!-- Story Content Body -->
+      <div class="story-viewer-body" id="storyViewerBody">
+        <!-- Injected: Image or Large Text -->
+      </div>
+      <!-- Footer: Views button for story owner -->
+      <div class="story-viewer-footer" id="storyViewerFooter" style="display: none;">
+        <button class="story-views-pill" id="btnStoryViewsToggle">
+          <span id="storyViewsCountText">👁️ 0 baxış</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW-ONCE PHOTO VIEWER MODAL -->
+  <div class="modal-backdrop view-once-backdrop" id="viewOnceModal" style="display: none;">
+    <div class="view-once-container">
+      <div class="view-once-top-bar">
+        <span class="view-once-badge-title">⚪ (1) Bir Dəfəlik Fotoşəkil</span>
+        <button class="view-once-exit-btn" id="btnCloseViewOnce" title="Bağla">✕</button>
+      </div>
+      <div class="view-once-image-wrapper">
+        <img id="viewOnceFullImage" src="" alt="Bir dəfəlik şəkil">
+      </div>
+      <div class="view-once-bottom-notice">
+        <span>⚠️ Bu pəncərə bağlandıqdan sonra şəkil sistemdən silinəcək və bir daha baxıla bilməyəcək.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE MESSAGE OPTIONS MODAL (HAMIDAN SİL / MƏNDƏN SİL) -->
+  <div class="modal-backdrop" id="deleteMsgModal" style="display: none;">
+    <div class="dialog-box small">
+      <div class="dialog-header">
+        <h3>🗑️ Mesajı Sil</h3>
+        <button class="close-x-btn" id="btnCloseDelModal">✕</button>
+      </div>
+      <div class="dialog-body-pin" style="gap: 12px; padding: 16px 20px 24px;">
+        <p style="font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px;">
+          Bu mesajı kimin üçün silmək istəyirsiniz?
+        </p>
+        <button class="btn-primary" id="btnDelForEveryone" style="background: #ea4335; color: #fff;">
+          🗑️ Hamıdan Sil (Everyone)
+        </button>
+        <button class="btn-primary" id="btnDelForMe" style="background: #202c33; color: var(--text-main); border: 1px solid var(--border-dark);">
+          👤 Yalnız Məndən Sil (For Me)
+        </button>
+        <button class="btn-modal-cancel" id="btnCancelDelMsg" style="margin-top: 4px;">
+          Ləğv Et
+        </button>
+      </div>
     </div>
   </div>
 

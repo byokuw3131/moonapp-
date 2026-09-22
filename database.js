@@ -1,14 +1,60 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const dbPath = path.join(__dirname, 'moonapp.sqlite');
-const db = new sqlite3.Database(dbPath);
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+let isPostgres = false;
+let pgPool = null;
+let sqliteDb = null;
+
+if (databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'))) {
+  const { Pool } = require('pg');
+  isPostgres = true;
+  pgPool = new Pool({
+    connectionString: databaseUrl,
+    ssl: databaseUrl.includes('localhost') ? false : { rejectUnauthorized: false }
+  });
+  console.log('[Database] Connected to PostgreSQL cloud database!');
+} else {
+  const sqlite3 = require('sqlite3').verbose();
+  const dbPath = path.join(__dirname, 'moonapp.sqlite');
+  sqliteDb = new sqlite3.Database(dbPath);
+  console.log('[Database] Using local SQLite database engine.');
+}
+
+function adaptSql(sql) {
+  if (!isPostgres) return sql;
+  let s = sql;
+  if (/^PRAGMA/i.test(s.trim())) {
+    return 'SELECT 1';
+  }
+  if (/INSERT\s+OR\s+IGNORE\s+INTO/i.test(s)) {
+    s = s.replace(/INSERT\s+OR\s+IGNORE\s+INTO/gi, 'INSERT INTO');
+    if (!/ON\s+CONFLICT/i.test(s)) {
+      s += ' ON CONFLICT DO NOTHING';
+    }
+  }
+  if (/INSERT\s+OR\s+REPLACE\s+INTO\s+settings/i.test(s)) {
+    s = s.replace(/INSERT\s+OR\s+REPLACE\s+INTO\s+settings/gi, 'INSERT INTO settings');
+    if (!/ON\s+CONFLICT/i.test(s)) {
+      s += ' ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value';
+    }
+  }
+  let idx = 1;
+  s = s.replace(/\?/g, () => `$${idx++}`);
+  return s;
+}
 
 // Helper for promise-based queries
 function run(sql, params = []) {
+  if (isPostgres) {
+    const adapted = adaptSql(sql);
+    return pgPool.query(adapted, params).then(res => ({
+      lastID: null,
+      changes: res.rowCount
+    }));
+  }
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
+    sqliteDb.run(sql, params, function (err) {
       if (err) return reject(err);
       resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -16,8 +62,12 @@ function run(sql, params = []) {
 }
 
 function get(sql, params = []) {
+  if (isPostgres) {
+    const adapted = adaptSql(sql);
+    return pgPool.query(adapted, params).then(res => res.rows[0] || null);
+  }
   return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
+    sqliteDb.get(sql, params, (err, row) => {
       if (err) return reject(err);
       resolve(row);
     });
@@ -25,8 +75,12 @@ function get(sql, params = []) {
 }
 
 function all(sql, params = []) {
+  if (isPostgres) {
+    const adapted = adaptSql(sql);
+    return pgPool.query(adapted, params).then(res => res.rows || []);
+  }
   return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
+    sqliteDb.all(sql, params, (err, rows) => {
       if (err) return reject(err);
       resolve(rows);
     });
@@ -147,11 +201,52 @@ async function initDatabase() {
     )
   `);
 
+  // Stories / Status table (24h ephemeral)
+  await run(`
+    CREATE TABLE IF NOT EXISTS stories (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL,
+      user_avatar TEXT,
+      type TEXT DEFAULT 'text', /* 'text' or 'image' */
+      content TEXT,
+      media_url TEXT,
+      bg_color TEXT DEFAULT '#00a884',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL
+    )
+  `);
+
+  // Story views
+  await run(`
+    CREATE TABLE IF NOT EXISTS story_views (
+      story_id TEXT NOT NULL,
+      viewer_id TEXT NOT NULL,
+      viewer_name TEXT NOT NULL,
+      viewer_avatar TEXT,
+      viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (story_id, viewer_id)
+    )
+  `);
+
+  // Hidden messages per user (Delete for me / Özümdən sil)
+  await run(`
+    CREATE TABLE IF NOT EXISTS hidden_messages (
+      user_id TEXT NOT NULL,
+      message_id TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, message_id)
+    )
+  `);
+
   // Ensure migrations for existing databases
   try { await run(`ALTER TABLE messages ADD COLUMN reply_to_id TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE messages ADD COLUMN reply_to_text TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE messages ADD COLUMN reply_to_sender TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0;`); } catch(e){}
+  try { await run(`ALTER TABLE messages ADD COLUMN is_view_once INTEGER DEFAULT 0;`); } catch(e){}
+  try { await run(`ALTER TABLE messages ADD COLUMN view_once_opened INTEGER DEFAULT 0;`); } catch(e){}
+  try { await run(`ALTER TABLE messages ADD COLUMN is_deleted_for_everyone INTEGER DEFAULT 0;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN pin_code TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;`); } catch(e){}
@@ -568,8 +663,9 @@ async function saveMessage(msg) {
     `INSERT INTO messages (
       id, room_id, sender_id, sender_name, sender_avatar, 
       content, type, file_url, file_name, file_size, duration, status, timestamp,
-      reply_to_id, reply_to_text, reply_to_sender, is_edited
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      reply_to_id, reply_to_text, reply_to_sender, is_edited,
+      is_view_once, view_once_opened, is_deleted_for_everyone
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       msg.id,
       msg.roomId,
@@ -587,6 +683,9 @@ async function saveMessage(msg) {
       msg.replyToId || null,
       msg.replyToText || null,
       msg.replyToSender || null,
+      0,
+      msg.isViewOnce ? 1 : 0,
+      0,
       0
     ]
   );
@@ -680,15 +779,22 @@ async function verifyUserPin(userId, inputPin) {
 }
 
 // Get messages for a room with reaction data
-async function getRoomMessages(roomId, limit = 150) {
-  const messages = await all(
-    `SELECT m.*, u.is_verified AS sender_verified 
-     FROM messages m 
-     LEFT JOIN users u ON m.sender_id = u.id 
-     WHERE m.room_id = ? 
-     ORDER BY m.timestamp ASC LIMIT ?`,
-    [roomId, limit]
-  );
+async function getRoomMessages(roomId, limit = 150, currentUserId = null) {
+  let sql = `
+    SELECT m.*, u.is_verified AS sender_verified 
+    FROM messages m 
+    LEFT JOIN users u ON m.sender_id = u.id 
+    WHERE m.room_id = ?
+  `;
+  const params = [roomId];
+  if (currentUserId) {
+    sql += ` AND m.id NOT IN (SELECT message_id FROM hidden_messages WHERE user_id = ?)`;
+    params.push(currentUserId);
+  }
+  sql += ` ORDER BY m.timestamp ASC LIMIT ?`;
+  params.push(limit);
+
+  const messages = await all(sql, params);
 
   if (messages.length === 0) return [];
 
@@ -815,6 +921,108 @@ async function getAllUsersForAdmin() {
   }
 }
 
+// STORIES (STATUS) METHODS
+async function createStory({ id, userId, userName, userAvatar, type = 'text', content = '', mediaUrl = null, bgColor = '#00a884', durationHours = 24 }) {
+  id = id || `story_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+  await run(
+    `INSERT INTO stories (id, user_id, user_name, user_avatar, type, content, media_url, bg_color, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, userId, userName, userAvatar, type, content, mediaUrl, bgColor, expiresAt]
+  );
+  return await get(`SELECT * FROM stories WHERE id = ?`, [id]);
+}
+
+async function getActiveStories(viewerUserId = null) {
+  const stories = await all(
+    `SELECT s.*,
+            (SELECT COUNT(*) FROM story_views WHERE story_id = s.id) AS views_count
+     FROM stories s
+     WHERE s.expires_at > CURRENT_TIMESTAMP
+     ORDER BY s.created_at ASC`
+  );
+
+  const userStoriesMap = {};
+  for (const st of stories) {
+    if (!userStoriesMap[st.user_id]) {
+      const u = await getUser(st.user_id);
+      userStoriesMap[st.user_id] = {
+        user_id: st.user_id,
+        user_name: u ? (u.nickname || u.username) : st.user_name,
+        user_avatar: u ? u.avatar : st.user_avatar,
+        stories: [],
+        has_unviewed: false
+      };
+    }
+    let isViewed = false;
+    if (viewerUserId) {
+      const view = await get('SELECT 1 FROM story_views WHERE story_id = ? AND viewer_id = ?', [st.id, viewerUserId]);
+      isViewed = !!view;
+    }
+    st.is_viewed = isViewed;
+    if (!isViewed && viewerUserId && st.user_id !== viewerUserId) {
+      userStoriesMap[st.user_id].has_unviewed = true;
+    }
+    userStoriesMap[st.user_id].stories.push(st);
+  }
+
+  return Object.values(userStoriesMap);
+}
+
+async function viewStory({ storyId, viewerId, viewerName, viewerAvatar }) {
+  await run(
+    `INSERT OR IGNORE INTO story_views (story_id, viewer_id, viewer_name, viewer_avatar)
+     VALUES (?, ?, ?, ?)`,
+    [storyId, viewerId, viewerName, viewerAvatar]
+  );
+  return await all(`SELECT * FROM story_views WHERE story_id = ? ORDER BY viewed_at DESC`, [storyId]);
+}
+
+async function getStoryViewers(storyId) {
+  return await all(`SELECT * FROM story_views WHERE story_id = ? ORDER BY viewed_at DESC`, [storyId]);
+}
+
+async function deleteStory(storyId, userId) {
+  const story = await get('SELECT * FROM stories WHERE id = ?', [storyId]);
+  if (!story) return false;
+  if (story.user_id !== userId) throw new Error('Yalnız öz statusunuzu silə bilərsiniz.');
+  await run('DELETE FROM story_views WHERE story_id = ?', [storyId]);
+  await run('DELETE FROM stories WHERE id = ?', [storyId]);
+  return true;
+}
+
+// MESSAGE DELETION & VIEW ONCE METHODS
+async function deleteMessageForMe(userId, messageId) {
+  await run('INSERT OR IGNORE INTO hidden_messages (user_id, message_id) VALUES (?, ?)', [userId, messageId]);
+  return true;
+}
+
+async function deleteMessageForEveryone(messageId, userId) {
+  const msg = await get('SELECT * FROM messages WHERE id = ?', [messageId]);
+  if (!msg) throw new Error('Mesaj tapılmadı.');
+  if (msg.sender_id !== userId) throw new Error('Yalnız öz göndərdiyiniz mesajı hamıdan silə bilərsiniz.');
+  await run(
+    `UPDATE messages 
+     SET content = '🚫 Bu mesaj silindi', 
+         is_deleted_for_everyone = 1, 
+         file_url = NULL, 
+         file_name = NULL, 
+         type = 'text' 
+     WHERE id = ?`,
+    [messageId]
+  );
+  return await get('SELECT * FROM messages WHERE id = ?', [messageId]);
+}
+
+async function openViewOnceMessage(messageId, userId) {
+  const msg = await get('SELECT * FROM messages WHERE id = ?', [messageId]);
+  if (!msg) throw new Error('Mesaj tapılmadı.');
+  if (msg.is_view_once !== 1) return msg;
+
+  await run('UPDATE messages SET view_once_opened = 1 WHERE id = ?', [messageId]);
+  return await get('SELECT * FROM messages WHERE id = ?', [messageId]);
+}
+
 module.exports = {
   initDatabase,
   upsertUser,
@@ -847,6 +1055,14 @@ module.exports = {
   getAllSettings,
   deleteUser,
   getAdminStats,
-  getAllUsersForAdmin
+  getAllUsersForAdmin,
+  createStory,
+  getActiveStories,
+  viewStory,
+  getStoryViewers,
+  deleteStory,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
+  openViewOnceMessage
 };
 
