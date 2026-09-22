@@ -554,6 +554,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2400);
   }
 
+  // Auto-reconnect authentication: Never lose session on server restart or network drop
+  socket.on('connect', () => {
+    const rawUser = localStorage.getItem('moonapp_user');
+    if (rawUser) {
+      try {
+        const u = JSON.parse(rawUser);
+        if (u && u.username && u.pin_code) {
+          socket.emit('auth_login', u, (res) => {
+            if (res && res.success) {
+              currentUser = res.user;
+              currentUser.pin_code = u.pin_code;
+              if (currentRoom) {
+                socket.emit('join_room', { roomId: currentRoom.id, userId: currentUser.id });
+              }
+            }
+          });
+        }
+      } catch (e) {}
+    }
+  });
+
   // Authentication Flow with 4-digit PIN Protection
   const storedUser = localStorage.getItem('moonapp_user');
   if (storedUser) {
@@ -1361,6 +1382,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function emitSendMessage(payload, onSuccess, onError) {
+    if (!payload.senderId && currentUser) {
+      payload.senderId = currentUser.id;
+    }
+    socket.emit('send_message', payload, (res) => {
+      if (res && res.error) {
+        if (res.error.toLowerCase().includes('oturum') && currentUser) {
+          socket.emit('auth_login', currentUser, (authRes) => {
+            if (authRes && authRes.success) {
+              socket.emit('send_message', payload, (retryRes) => {
+                if (!retryRes || !retryRes.error) {
+                  MoonAudio.playSentSound();
+                  if (onSuccess) onSuccess(retryRes);
+                } else {
+                  showToast(retryRes.error);
+                  if (onError) onError(retryRes.error);
+                }
+              });
+            } else {
+              showToast('Sessiyanız yenilənmədi, zəhmət olmasa yenidən daxil olun.');
+              loginBackdrop.style.display = 'flex';
+            }
+          });
+          return;
+        }
+        showToast(res.error);
+        if (onError) onError(res.error);
+      } else {
+        MoonAudio.playSentSound();
+        if (onSuccess) onSuccess(res);
+      }
+    });
+  }
+
   function handleSendMessage() {
     const text = messageTextInput.value.trim();
     if (!text || !currentRoom) return;
@@ -1372,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         newContent: text,
         roomId: currentRoom.id
       }, (res) => {
-        if (res && res.error) alert(res.error);
+        if (res && res.error) showToast(res.error);
         closeReplyOrEditBanner();
         messageTextInput.value = '';
         updateSendMicButtonVisibility();
@@ -1385,18 +1440,13 @@ document.addEventListener('DOMContentLoaded', () => {
       roomId: currentRoom.id,
       content: text,
       type: 'text',
+      senderId: currentUser ? currentUser.id : null,
       replyToId: replyContext ? replyContext.id : null,
       replyToText: replyContext ? (replyContext.content || 'Fayl') : null,
       replyToSender: replyContext ? replyContext.sender_name : null
     };
 
-    socket.emit('send_message', payload, (res) => {
-      if (res && res.error) {
-        alert(res.error);
-      } else {
-        MoonAudio.playSentSound();
-      }
-    });
+    emitSendMessage(payload);
 
     messageTextInput.value = '';
     updateSendMicButtonVisibility();
@@ -1573,16 +1623,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await resp.json();
         if (data.success && currentRoom) {
-          socket.emit('send_message', {
+          emitSendMessage({
             roomId: currentRoom.id,
             type: 'voice',
             fileUrl: data.fileUrl,
             fileName: 'Səsli mesaj',
             fileSize: data.fileSize,
             duration: duration,
-            content: ''
-          }, () => {
-            MoonAudio.playSentSound();
+            content: '',
+            senderId: currentUser ? currentUser.id : null
           });
         } else {
           alert('Səsli mesaj göndərilmədi: ' + (data.error || 'Server xətası'));
@@ -1647,11 +1696,12 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const url = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-        socket.emit('send_message', {
+        emitSendMessage({
           roomId: currentRoom.id,
           content: url,
-          type: 'location'
-        }, () => MoonAudio.playSentSound());
+          type: 'location',
+          senderId: currentUser ? currentUser.id : null
+        });
       },
       (err) => alert('Məkan icazəsi alınmadı: ' + err.message)
     );
@@ -1734,20 +1784,21 @@ document.addEventListener('DOMContentLoaded', () => {
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
-          socket.emit('send_message', {
+          emitSendMessage({
             roomId: currentRoom.id,
             type: 'image',
             fileUrl: data.fileUrl,
             fileName: data.fileName,
             fileSize: data.fileSize,
             content: captionToSend,
-            isViewOnce: isViewOnce
-          }, () => MoonAudio.playSentSound());
+            isViewOnce: isViewOnce,
+            senderId: currentUser ? currentUser.id : null
+          });
         } else {
-          alert('Yükləmə xətası: ' + data.error);
+          showToast('Yükləmə xətası: ' + data.error);
         }
       })
-      .catch((e) => alert('Yükləmə xətası: ' + e.message));
+      .catch((e) => showToast('Yükləmə xətası: ' + e.message));
   });
 
   generalFileInput.addEventListener('change', () => uploadAndSendFile(generalFileInput.files[0], 'file'));
@@ -1764,14 +1815,15 @@ document.addEventListener('DOMContentLoaded', () => {
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
-          socket.emit('send_message', {
+          emitSendMessage({
             roomId: currentRoom.id,
             type: type,
             fileUrl: data.fileUrl,
             fileName: data.fileName,
             fileSize: data.fileSize,
-            content: ''
-          }, () => MoonAudio.playSentSound());
+            content: '',
+            senderId: currentUser ? currentUser.id : null
+          });
         } else {
           alert('Yükləmə xətası: ' + data.error);
         }

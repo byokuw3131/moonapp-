@@ -214,6 +214,19 @@ app.post('/api/admin/settings', async (req, res) => {
 const socketToUser = new Map(); // socket.id -> userId
 const userSockets = new Map();  // userId -> Set<socket.id>
 
+function getSessionUserId(socket, fallbackId) {
+  let uid = socketToUser.get(socket.id);
+  if (!uid && fallbackId) {
+    uid = fallbackId;
+    socketToUser.set(socket.id, uid);
+    if (!userSockets.has(uid)) {
+      userSockets.set(uid, new Set());
+    }
+    userSockets.get(uid).add(socket.id);
+  }
+  return uid;
+}
+
 io.on('connection', (socket) => {
   console.log(`[Socket] Connected: ${socket.id}`);
 
@@ -367,9 +380,9 @@ io.on('connection', (socket) => {
 
   // Send Message
   socket.on('send_message', async (msgData, callback) => {
-    const userId = socketToUser.get(socket.id);
+    const userId = getSessionUserId(socket, msgData ? msgData.senderId : null);
     if (!userId) {
-      if (callback) callback({ error: 'Oturum açık değil.' });
+      if (callback) callback({ error: 'Oturum açıq deyil' });
       return;
     }
 
@@ -542,7 +555,7 @@ io.on('connection', (socket) => {
 
   // 24-HOUR STORIES / STATUS HANDLERS
   socket.on('post_story', async (storyData, callback) => {
-    const userId = socketToUser.get(socket.id);
+    const userId = getSessionUserId(socket, storyData ? storyData.userId : null);
     if (!userId) {
       if (callback) callback({ error: 'Oturum açıq deyil' });
       return;

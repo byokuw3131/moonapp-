@@ -57,11 +57,13 @@
 
       <!-- 24h Stories / Status Tray -->
       <div class="stories-tray-section">
-        <div class="stories-scroll-container" id="storiesScrollTrack">
+        <div class="stories-tray-scroll" id="storiesScrollTrack">
           <!-- My status bubble -->
           <div class="story-item-bubble my-story-bubble" id="btnMyStoryTrigger" title="Status Paylaş">
-            <div class="story-avatar-outer" id="myStoryAvatarRing">
-              <div class="story-avatar-inner" id="myStoryAvatarDisplay"><img src="/logo.png" alt="Status" style="width:70%;height:70%;object-fit:contain;"></div>
+            <div class="story-avatar-container" id="myStoryAvatarRing">
+              <div class="story-avatar-inner" id="myStoryAvatarDisplay">
+                <img src="/logo.png" alt="Status" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+              </div>
               <span class="story-plus-badge">+</span>
             </div>
             <span class="story-bubble-label">Statusum</span>
