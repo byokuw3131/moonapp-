@@ -736,6 +736,7 @@ html, body {
   color: #e9edef;
   display: inline;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 .msg-text-content.emoji-single {
   font-size: 48px !important;
