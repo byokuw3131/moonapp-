@@ -329,7 +329,7 @@ async function initDatabase() {
   }
 
   // Update room name and avatar if already exists
-  await run(`UPDATE rooms SET name = 'Moon Ümumi Söhbət', avatar = '/logo.png', description = 'MoonApp rəsmi ümumi söhbət otağı. Hər kəs burada yaza bilər!' WHERE id = 'moon_lounge'`);
+  await run(`UPDATE rooms SET name = 'Moon Ümumi Söhbət', avatar = COALESCE(NULLIF(avatar, ''), '/logo.png'), description = 'Moon App rəsmi ümumi söhbət otağı. Hər kəs burada yaza bilər!' WHERE id = 'moon_lounge'`);
 
   // Clean up any remaining bot entries if exists
   await run(`DELETE FROM users WHERE id = 'moonbot'`);
@@ -548,9 +548,8 @@ async function getUserRooms(userId, showHidden = false) {
         ELSE r.name
       END AS display_name,
       CASE 
-        WHEN r.id = 'moon_lounge' THEN '/logo.png'
         WHEN r.type = 'direct' THEN COALESCE(other_u.avatar, '/logo.png')
-        ELSE COALESCE(r.avatar, '/logo.png')
+        ELSE COALESCE(NULLIF(r.avatar, ''), '/logo.png')
       END AS display_avatar,
       CASE 
         WHEN other_u.id = 'moonbot' THEN 1
@@ -891,24 +890,80 @@ async function getAdminStats() {
   const messagesCount = await get('SELECT COUNT(*) AS total FROM messages');
   const onlineCount = await get('SELECT COUNT(*) AS total FROM users WHERE online = 1');
   const verifiedCount = await get('SELECT COUNT(*) AS total FROM users WHERE is_verified = 1');
-  const roomsCount = await get('SELECT COUNT(*) AS total FROM rooms');
+  const adminCount = await get('SELECT COUNT(*) AS total FROM users WHERE is_admin = 1');
+  const mediaCount = await get("SELECT COUNT(*) AS total FROM messages WHERE type IN ('image', 'voice', 'audio', 'file', 'location')");
+  let todayCount = 0;
+  try {
+    const todayRes = await get("SELECT COUNT(*) AS total FROM messages WHERE date(created_at) = date('now')");
+    todayCount = todayRes ? todayRes.total : 0;
+  } catch(e) {}
+  
+  const lounge = await get("SELECT avatar, name FROM rooms WHERE id = 'moon_lounge'");
+
+  let topUsers = [];
+  try {
+    topUsers = await all(`
+      SELECT u.id, u.username, u.nickname, u.avatar, COALESCE(u.is_verified, 0) AS is_verified, COALESCE(u.is_admin, 0) AS is_admin,
+             u.online, u.last_seen,
+             (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS message_count
+      FROM users u
+      ORDER BY message_count DESC, u.created_at ASC
+      LIMIT 5
+    `);
+  } catch(e) {}
+
   const uCount = usersCount ? usersCount.total : 0;
   const mCount = messagesCount ? messagesCount.total : 0;
   const oCount = onlineCount ? onlineCount.total : 0;
   const vCount = verifiedCount ? verifiedCount.total : 0;
-  const rCount = roomsCount ? roomsCount.total : 0;
+  const aCount = adminCount ? adminCount.total : 0;
+  const medCount = mediaCount ? mediaCount.total : 0;
+
   return {
     totalUsers: uCount,
     totalMessages: mCount,
     onlineUsers: oCount,
     verifiedUsers: vCount,
-    totalRooms: rCount,
+    adminUsers: aCount,
+    mediaCount: medCount,
+    todayMessages: todayCount,
+    loungeAvatar: lounge ? (lounge.avatar || '/logo.png') : '/logo.png',
+    loungeName: lounge ? (lounge.name || 'Moon Ümumi Söhbət') : 'Moon Ümumi Söhbət',
+    topUsers: topUsers || [],
     total_users: uCount,
     total_messages: mCount,
     online_users: oCount,
-    verified_users: vCount,
-    total_rooms: rCount
+    verified_users: vCount
   };
+}
+
+async function updateLoungeAvatar(avatarUrl) {
+  await run("UPDATE rooms SET avatar = ? WHERE id = 'moon_lounge'", [avatarUrl]);
+  return await get("SELECT * FROM rooms WHERE id = 'moon_lounge'");
+}
+
+async function sendAdminDirectMessage(targetUserId, content, title = '⚠️ Rəsmi İnzibatçı Xəbərdarlığı') {
+  const adminSystemId = 'system_admin';
+  await run(`
+    INSERT OR IGNORE INTO users (id, username, nickname, avatar, online, is_verified, is_admin)
+    VALUES (?, ?, ?, ?, 1, 1, 1)
+  `, [adminSystemId, 'admin_system', 'Moon App İnzibatçısı 👑', '/logo.png']);
+
+  const room = await getOrCreateDirectRoom(adminSystemId, targetUserId);
+  const msgId = `msg_admin_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const fullContent = `${title}\n\n${content}`;
+  
+  await run(`
+    INSERT INTO messages (id, room_id, sender_id, sender_name, sender_avatar, content, type, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'text', 'sent')
+  `, [msgId, room.id, adminSystemId, 'Moon App İnzibatçısı 👑', '/logo.png', fullContent]);
+
+  return { roomId: room.id, messageId: msgId, content: fullContent, room };
+}
+
+async function clearLoungeMessages() {
+  await run("DELETE FROM messages WHERE room_id = 'moon_lounge'");
+  return true;
 }
 
 async function getAllUsersForAdmin() {
@@ -1063,6 +1118,9 @@ module.exports = {
   unhideUser,
   setUserVerified,
   setUserAdmin,
+  updateLoungeAvatar,
+  sendAdminDirectMessage,
+  clearLoungeMessages,
   getSetting,
   setSetting,
   getAllSettings,
@@ -1078,4 +1136,3 @@ module.exports = {
   deleteMessageForEveryone,
   openViewOnceMessage
 };
-

@@ -2085,6 +2085,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  socket.on('lounge_avatar_updated', ({ avatar }) => {
+    rooms.forEach((r) => {
+      if (r.id === 'moon_lounge') {
+        r.avatar = avatar;
+        r.display_avatar = avatar;
+      }
+    });
+    renderChatList();
+    if (currentRoom && currentRoom.id === 'moon_lounge') {
+      currentRoom.avatar = avatar;
+      currentRoom.display_avatar = avatar;
+      updateChatHeader();
+    }
+  });
+
+  socket.on('admin_direct_warning', ({ title, content }) => {
+    alert(`${title}\n\n${content}`);
+    fetchRooms();
+  });
+
+  socket.on('room_messages_cleared', ({ roomId }) => {
+    if (currentRoom && currentRoom.id === roomId) {
+      messagesFlow.innerHTML = '<div class="chat-date-divider"><span>Söhbət administrator tərəfindən təmizləndi</span></div>';
+    }
+  });
+
   socket.on('user_deleted', ({ userId }) => {
     if (currentUser && currentUser.id === userId) {
       alert('Hesabınız sistem administratoru tərəfindən silinmişdir.');

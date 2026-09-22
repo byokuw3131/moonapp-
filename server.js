@@ -188,6 +188,73 @@ app.post('/api/admin/broadcast', async (req, res) => {
   }
 });
 
+app.post('/api/admin/room/lounge-avatar', async (req, res) => {
+  try {
+    const { avatar } = req.body;
+    if (!avatar) return res.status(400).json({ error: 'Avatar boş ola bilməz' });
+    const room = await db.updateLoungeAvatar(avatar);
+    io.emit('lounge_avatar_updated', { avatar: room.avatar });
+    io.emit('room_updated', { roomId: 'moon_lounge', avatar: room.avatar });
+    io.emit('admin_data_changed');
+    res.json({ success: true, room });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/user/send-message', async (req, res) => {
+  try {
+    const { userId, title, content } = req.body;
+    if (!userId || !content) return res.status(400).json({ error: 'İstifadəçi və mesaj mətni vacibdir' });
+    const result = await db.sendAdminDirectMessage(userId, content, title);
+    
+    // Notify the user in real-time if online
+    if (userSockets.has(userId)) {
+      const sids = userSockets.get(userId);
+      for (const sid of sids) {
+        const s = io.sockets.sockets.get(sid);
+        if (s) {
+          s.emit('admin_direct_warning', {
+            title: title || '⚠️ Rəsmi İnzibatçı Xəbərdarlığı',
+            content: content,
+            timestamp: Date.now()
+          });
+          s.emit('room_added');
+          s.emit('update_room_preview');
+        }
+      }
+    }
+    io.emit('admin_data_changed');
+    res.json({ success: true, result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/room/clear-lounge', async (req, res) => {
+  try {
+    await db.clearLoungeMessages();
+    io.to('moon_lounge').emit('room_messages_cleared', { roomId: 'moon_lounge' });
+    io.emit('admin_data_changed');
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/export-data', async (req, res) => {
+  try {
+    const users = await db.getAllUsersForAdmin();
+    const stats = await db.getAdminStats();
+    const settings = await db.getAllSettings();
+    res.setHeader('Content-Disposition', 'attachment; filename=moonapp_backup.json');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify({ exportDate: new Date(), stats, settings, users }, null, 2));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/admin/settings', async (req, res) => {
   try {
     const settings = await db.getAllSettings();

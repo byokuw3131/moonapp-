@@ -386,8 +386,188 @@
     }
     .actions-group {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .btn-warning:hover {
+      background: #f59e0b;
+      color: #111b21;
+    }
+
+    /* Modal */
+    .admin-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .admin-modal-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 480px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.8);
+      animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalPop {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .admin-modal-header {
+      padding: 16px 20px;
+      background: #111b21;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .admin-modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .admin-modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .admin-modal-close:hover {
+      color: #fff;
+    }
+    .admin-modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .admin-modal-footer {
+      padding: 14px 20px;
+      background: #111b21;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Search & Filter Bar */
+    .search-filter-wrap {
+      display: flex;
+      gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.15);
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .search-box-admin {
+      flex: 1;
+      min-width: 200px;
+    }
+    .filter-pills-admin {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .filter-pill-admin {
+      background: #202c33;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .filter-pill-admin.active, .filter-pill-admin:hover {
+      background: rgba(0, 168, 132, 0.2);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    /* Leaderboard / TOP 5 */
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .leaderboard-row:last-child {
+      border-bottom: none;
+    }
+    .leaderboard-row:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .leaderboard-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .leaderboard-rank {
+      font-size: 18px;
+      font-weight: 700;
+      width: 28px;
+      text-align: center;
+    }
+    .leaderboard-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .leaderboard-progress-bg {
+      height: 6px;
+      background: #202c33;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+      width: 120px;
+    }
+    .leaderboard-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00a884, #0084ff);
+      border-radius: 3px;
+    }
+
+    /* Lounge Logo Customizer */
+    .lounge-logo-card {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .lounge-logo-preview {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-green);
+      overflow: hidden;
+      background: #202c33;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0, 168, 132, 0.35);
+      flex-shrink: 0;
+    }
+    .lounge-logo-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .grid-2col {
@@ -401,6 +581,10 @@
       }
       .admin-header {
         padding: 12px 16px;
+      }
+      .search-filter-wrap {
+        flex-direction: column;
+        align-items: stretch;
       }
     }
   </style>
@@ -432,6 +616,7 @@
         <span class="badge">Admin</span>
       </div>
       <div class="admin-nav-actions">
+        <a href="/api/admin/export-data" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; background: rgba(0, 168, 132, 0.15); color: var(--accent-green); border: 1px solid rgba(0, 168, 132, 0.3);">💾 JSON Backup Endir</a>
         <a href="/" target="_blank">🌐 MoonApp-ı Aç</a>
         <button class="btn btn-secondary btn-sm" id="btnAdminLogout">Çıxış</button>
       </div>
@@ -456,18 +641,93 @@
           <div class="stat-value" id="statMessages">0</div>
         </div>
         <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-title">Bugünkü Mesajlar</div>
+          <div class="stat-value" id="statToday">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🖼️</div>
+          <div class="stat-title">Paylaşılan Media / Fayl</div>
+          <div class="stat-value" id="statMedia">0</div>
+        </div>
+        <div class="stat-card">
           <div class="stat-icon">💎</div>
           <div class="stat-title">Mavi Tikli Hesablar</div>
           <div class="stat-value" id="statVerified">0</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-icon">👑</div>
+          <div class="stat-title">Təyin Edilmiş Adminlər</div>
+          <div class="stat-value" id="statAdmins">0</div>
+        </div>
       </div>
 
-      <!-- USERS MANAGEMENT TABLE -->
+      <!-- 2-COL: LOUNGE CONTROLS & LEADERBOARD (TOP 5) -->
+      <div class="grid-2col">
+        <!-- MOON LOUNGE LOGO & CONTROLS -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3>🌙 Moon Ümumi Söhbət İdarəetməsi</h3>
+          </div>
+          <div class="section-body" style="display:flex; flex-direction:column; gap:16px;">
+            <p style="font-size:13px; color:var(--text-muted); margin:0;">
+              Bütün istifadəçilərin gördüyü əsas Moon Lounge qrup otağının loqosunu dəyişdirin və idarə edin.
+            </p>
+            <div class="lounge-logo-card">
+              <div class="lounge-logo-preview">
+                <img id="loungeAvatarImg" src="/logo.png" alt="Moon Lounge Avatar">
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                <input type="file" id="loungeAvatarFileInput" accept="image/*" style="display:none;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btnUploadLoungeFile">📁 Şəkil Seç</button>
+                  <button type="button" class="btn btn-sm" id="btnSaveLoungeAvatar">💾 Loqonu Saxla</button>
+                </div>
+                <input type="text" id="loungeAvatarUrlInput" class="input-field" placeholder="Və ya loqo URL-i daxil edin (/logo.png və ya https://...)">
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border); padding-top:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <div style="font-weight:600; font-size:13px; color:#ff4d4d;">Təmizləmə Əməliyyatı</div>
+                <div style="font-size:12px; color:var(--text-muted);">Moon Ümumi Söhbətdəki bütün mesajları birdəfəlik silir</div>
+              </div>
+              <button type="button" class="btn btn-danger btn-sm" id="btnClearLounge">🧹 Söhbəti Təmizlə</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOP 5 MOST ACTIVE USERS -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3>🏆 Ən Aktiv İstifadəçilər (TOP 5)</h3>
+            <span style="font-size:12px; color:var(--accent-green); font-weight:600;">Mesaj Sayına Görə</span>
+          </div>
+          <div id="topUsersList" style="display:flex; flex-direction:column;">
+            <div style="padding:20px; text-align:center; color:var(--text-muted);">Statistika yüklənir...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS MANAGEMENT TABLE WITH SEARCH & FILTER -->
       <div class="section-card">
         <div class="section-header">
-          <h3>👥 İstifadəçi İdarəetməsi (Mavi Tik & Silmə)</h3>
+          <h3>👥 İstifadəçi İdarəetməsi (Mavi Tik, Admin, Xəbərdarlıq, Silmə)</h3>
           <button class="btn btn-secondary btn-sm" id="btnRefreshUsers">🔄 Yenilə</button>
         </div>
+
+        <!-- SEARCH & FILTER BAR -->
+        <div class="search-filter-wrap">
+          <div class="search-box-admin">
+            <input type="text" id="userSearchInput" class="input-field" placeholder="🔍 Ad və ya @istifadəçi adına görə canlı axtar...">
+          </div>
+          <div class="filter-pills-admin">
+            <button class="filter-pill-admin active" data-filter="all">Hamısı</button>
+            <button class="filter-pill-admin" data-filter="online">🟢 Onlayn</button>
+            <button class="filter-pill-admin" data-filter="admin">👑 Adminlər</button>
+            <button class="filter-pill-admin" data-filter="verified">💎 Mavi Tik</button>
+          </div>
+        </div>
+
         <div class="table-responsive">
           <table>
             <thead>
@@ -475,7 +735,7 @@
                 <th>İstifadəçi</th>
                 <th>Status</th>
                 <th>Mesajlar</th>
-                <th>Mavi Tik</th>
+                <th>Dərəcə</th>
                 <th>Son Görülmə</th>
                 <th>Əməliyyatlar</th>
               </tr>
@@ -531,6 +791,41 @@
     </div>
   </div>
 
+  <!-- DIRECT WARNING / MESSAGE MODAL -->
+  <div class="admin-modal-backdrop" id="warningModalBackdrop">
+    <div class="admin-modal-card">
+      <div class="admin-modal-header">
+        <h3>📩 İstifadəçiyə Fərdi Mesaj / Xəbərdarlıq</h3>
+        <button class="admin-modal-close" onclick="closeWarningModal()">&times;</button>
+      </div>
+      <div class="admin-modal-body">
+        <div style="display:flex; align-items:center; gap:10px; background:#111b21; padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
+          <span style="font-size:13px; color:var(--text-muted);">Alıcı:</span>
+          <span id="warningModalRecipient" style="font-weight:600; color:var(--accent-green);">@user</span>
+        </div>
+        <div class="form-group">
+          <label for="warningTypeSelect">Mesaj Növü / Başlıq</label>
+          <select id="warningTypeSelect" class="input-field" style="background:#202c33; color:#fff;">
+            <option value="⚠️ Rəsmi İnzibatçı Xəbərdarlığı">⚠️ Rəsmi İnzibatçı Xəbərdarlığı</option>
+            <option value="ℹ️ Rəsmi Sistem Bildirişi">ℹ️ Rəsmi Sistem Bildirişi</option>
+            <option value="🔔 Qaydaların Pozulması Xəbərdarlığı">🔔 Qaydaların Pozulması Xəbərdarlığı</option>
+            <option value="💬 İnzibatçıdan Şəxsi Mesaj">💬 İnzibatçıdan Şəxsi Mesaj</option>
+            <option value="custom">✏️ Özəl Başlıq Yaz...</option>
+          </select>
+          <input type="text" id="warningCustomTitle" class="input-field" placeholder="Özəl başlıq daxil edin..." style="display:none; margin-top:8px;">
+        </div>
+        <div class="form-group">
+          <label for="warningContentTextarea">Mesaj Mətni</label>
+          <textarea id="warningContentTextarea" class="input-field" rows="4" placeholder="İstifadəçiyə çatdırılacaq xəbərdarlıq və ya bildiriş mətni..." required></textarea>
+        </div>
+      </div>
+      <div class="admin-modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeWarningModal()">Ləğv Et</button>
+        <button type="button" class="btn btn-warning btn-sm" id="btnSubmitWarning">🚀 Göndər</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const checkmarkSvg = `<span class="mavi-tik-badge" title="Təsdiqlənmiş Mavi Tik"><svg viewBox="0 0 24 24" fill="#00a884"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>`;
 
@@ -546,6 +841,30 @@
     const settingsForm = document.getElementById('settingsForm');
     const settingTitle = document.getElementById('settingTitle');
     const settingPass = document.getElementById('settingPass');
+
+    // Lounge Avatar Elements
+    const loungeAvatarImg = document.getElementById('loungeAvatarImg');
+    const loungeAvatarFileInput = document.getElementById('loungeAvatarFileInput');
+    const btnUploadLoungeFile = document.getElementById('btnUploadLoungeFile');
+    const loungeAvatarUrlInput = document.getElementById('loungeAvatarUrlInput');
+    const btnSaveLoungeAvatar = document.getElementById('btnSaveLoungeAvatar');
+    const btnClearLounge = document.getElementById('btnClearLounge');
+
+    // Search and Filter Elements
+    const userSearchInput = document.getElementById('userSearchInput');
+    const filterPills = document.querySelectorAll('.filter-pill-admin');
+
+    // Warning Modal Elements
+    const warningModalBackdrop = document.getElementById('warningModalBackdrop');
+    const warningModalRecipient = document.getElementById('warningModalRecipient');
+    const warningTypeSelect = document.getElementById('warningTypeSelect');
+    const warningCustomTitle = document.getElementById('warningCustomTitle');
+    const warningContentTextarea = document.getElementById('warningContentTextarea');
+    const btnSubmitWarning = document.getElementById('btnSubmitWarning');
+
+    let allUsers = [];
+    let activeFilter = 'all';
+    let currentWarningUserId = null;
 
     // Check Session
     const adminToken = localStorage.getItem('moonapp_admin_token');
@@ -592,14 +911,75 @@
         const res = await fetch('/api/admin/stats');
         const data = await res.json();
         if (data.success && data.stats) {
-          document.getElementById('statUsers').textContent = data.stats.total_users ?? data.stats.totalUsers ?? 0;
-          document.getElementById('statOnline').textContent = data.stats.online_users ?? data.stats.onlineUsers ?? 0;
-          document.getElementById('statMessages').textContent = data.stats.total_messages ?? data.stats.totalMessages ?? 0;
-          document.getElementById('statVerified').textContent = data.stats.verified_users ?? data.stats.verifiedUsers ?? 0;
+          const s = data.stats;
+          document.getElementById('statUsers').textContent = s.totalUsers ?? s.total_users ?? 0;
+          document.getElementById('statOnline').textContent = s.onlineUsers ?? s.online_users ?? 0;
+          document.getElementById('statMessages').textContent = s.totalMessages ?? s.total_messages ?? 0;
+          document.getElementById('statToday').textContent = s.todayMessages ?? 0;
+          document.getElementById('statMedia').textContent = s.mediaCount ?? 0;
+          document.getElementById('statVerified').textContent = s.verifiedUsers ?? s.verified_users ?? 0;
+          document.getElementById('statAdmins').textContent = s.adminUsers ?? 0;
+
+          if (s.loungeAvatar) {
+            loungeAvatarImg.src = s.loungeAvatar;
+            loungeAvatarUrlInput.value = s.loungeAvatar;
+          }
+
+          if (Array.isArray(s.topUsers)) {
+            renderTopUsers(s.topUsers);
+          }
         }
       } catch (e) {
         console.error('Stats error:', e);
       }
+    }
+
+    function renderTopUsers(topUsers) {
+      const container = document.getElementById('topUsersList');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!topUsers || topUsers.length === 0) {
+        container.innerHTML = '<div style="padding:20px; color:var(--text-muted); text-align:center;">Hələ heç bir mesaj statistikası yoxdur</div>';
+        return;
+      }
+      const maxMsgs = Math.max(...topUsers.map(u => u.message_count || 1), 1);
+      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+      topUsers.forEach((u, idx) => {
+        const medal = medals[idx] || `${idx + 1}.`;
+        const row = document.createElement('div');
+        row.className = 'leaderboard-row';
+        const isVerified = u.is_verified === 1;
+        const isAdmin = u.is_admin === 1;
+        const pct = Math.round(((u.message_count || 0) / maxMsgs) * 100);
+
+        let avatarSrc = u.avatar && (u.avatar.startsWith('http') || u.avatar.startsWith('/uploads/') || u.avatar.startsWith('/logo.png'))
+          ? u.avatar
+          : '/logo.png';
+
+        row.innerHTML = `
+          <div class="leaderboard-left">
+            <div class="leaderboard-rank">${medal}</div>
+            <div class="avatar-sm">
+              <img src="${avatarSrc}" alt="${escapeHtml(u.nickname || u.username)}">
+            </div>
+            <div>
+              <div style="font-weight:600; display:flex; align-items:center; gap:4px;" class="${isAdmin ? 'is-admin-name' : ''}">
+                ${escapeHtml(u.nickname || u.username)}
+                ${isVerified ? '<img src="/verified.png" class="verified-blue-badge" alt="Verified" title="Təsdiqlənmiş Hesab">' : ''}
+                ${isAdmin ? '<span class="admin-crown-badge">👑 Admin</span>' : ''}
+              </div>
+              <div style="font-size:12px; color:var(--text-muted);">@${escapeHtml(u.username)}</div>
+            </div>
+          </div>
+          <div class="leaderboard-right">
+            <span style="font-size:14px; font-weight:700; color:var(--accent-green);">${u.message_count || 0} mesaj</span>
+            <div class="leaderboard-progress-bg">
+              <div class="leaderboard-progress-fill" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
     }
 
     async function loadUsers() {
@@ -607,7 +987,8 @@
         const res = await fetch('/api/admin/users');
         const data = await res.json();
         if (data.success && Array.isArray(data.users)) {
-          renderUsers(data.users);
+          allUsers = data.users;
+          applyFilterAndSearch();
         } else {
           usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--accent-red)">İstifadəçiləri yükləmək mümkün olmadı: ${data.error || 'Naməlum xəta'}</td></tr>`;
         }
@@ -617,10 +998,38 @@
       }
     }
 
+    function applyFilterAndSearch() {
+      const q = (userSearchInput.value || '').toLowerCase().trim();
+      let filtered = allUsers.filter(u => {
+        if (activeFilter === 'online' && u.online !== 1) return false;
+        if (activeFilter === 'admin' && u.is_admin !== 1) return false;
+        if (activeFilter === 'verified' && u.is_verified !== 1) return false;
+
+        if (q) {
+          const nick = (u.nickname || '').toLowerCase();
+          const user = (u.username || '').toLowerCase();
+          return nick.includes(q) || user.includes(q);
+        }
+        return true;
+      });
+      renderUsers(filtered);
+    }
+
+    userSearchInput.addEventListener('input', applyFilterAndSearch);
+
+    filterPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        filterPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeFilter = pill.dataset.filter;
+        applyFilterAndSearch();
+      });
+    });
+
     function renderUsers(users) {
       usersTableBody.innerHTML = '';
       if (!users || users.length === 0) {
-        usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted)">Qeydiyyatdan keçmiş istifadəçi yoxdur</td></tr>`;
+        usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted)">Axtarışa uyğun istifadəçi tapılmadı</td></tr>`;
         return;
       }
 
@@ -668,13 +1077,16 @@
           </td>
           <td>
             <div class="actions-group">
+              <button class="btn btn-sm btn-warning" onclick="openWarningModal('${u.id}', '${escapeJs(u.nickname || u.username)}', '${escapeJs(u.username)}')">
+                📩 Xəbərdarlıq
+              </button>
               <button class="btn btn-sm ${isVerified ? 'btn-verify verified' : 'btn-verify'}" onclick="toggleVerified('${u.id}', ${isVerified ? 0 : 1})">
                 ${isVerified ? 'Mavi Tıki Ləğv Et' : '💎 Mavi Tik Ver'}
               </button>
               <button class="btn btn-sm ${isAdmin ? 'btn-admin-active' : 'btn-secondary'}" onclick="toggleAdmin('${u.id}', ${isAdmin ? 0 : 1})">
                 ${isAdmin ? '👑 Admini Ləğv Et' : '👑 Admin Təyin Et'}
               </button>
-              <button class="btn btn-sm btn-danger" onclick="deleteUserAccount('${u.id}', '${escapeHtml(u.username)}')">
+              <button class="btn btn-sm btn-danger" onclick="deleteUserAccount('${u.id}', '${escapeJs(u.username)}')">
                 🗑️ Sil
               </button>
             </div>
@@ -683,6 +1095,164 @@
         usersTableBody.appendChild(tr);
       });
     }
+
+    // DIRECT WARNING / MESSAGE MODAL LOGIC
+    window.openWarningModal = function(userId, displayName, username) {
+      currentWarningUserId = userId;
+      warningModalRecipient.textContent = `${displayName} (@${username})`;
+      warningContentTextarea.value = '';
+      warningTypeSelect.value = '⚠️ Rəsmi İnzibatçı Xəbərdarlığı';
+      warningCustomTitle.style.display = 'none';
+      warningCustomTitle.value = '';
+      warningModalBackdrop.style.display = 'flex';
+    };
+
+    window.closeWarningModal = function() {
+      warningModalBackdrop.style.display = 'none';
+      currentWarningUserId = null;
+    };
+
+    warningTypeSelect.addEventListener('change', () => {
+      if (warningTypeSelect.value === 'custom') {
+        warningCustomTitle.style.display = 'block';
+        warningCustomTitle.focus();
+      } else {
+        warningCustomTitle.style.display = 'none';
+      }
+    });
+
+    btnSubmitWarning.addEventListener('click', async () => {
+      if (!currentWarningUserId) return;
+      let title = warningTypeSelect.value;
+      if (title === 'custom') {
+        title = warningCustomTitle.value.trim() || '⚠️ Rəsmi İnzibatçı Xəbərdarlığı';
+      }
+      const content = warningContentTextarea.value.trim();
+      if (!content) {
+        alert('Zəhmət olmasa xəbərdarlıq və ya mesaj mətnini daxil edin');
+        return;
+      }
+
+      btnSubmitWarning.disabled = true;
+      btnSubmitWarning.textContent = 'Göndərilir...';
+
+      try {
+        const res = await fetch('/api/admin/user/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentWarningUserId, title, content })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Xəbərdarlıq / mesaj istifadəçiyə çatdırıldı!');
+          closeWarningModal();
+          loadStats();
+        } else {
+          alert(data.error || 'Mesaj göndərilmədi');
+        }
+      } catch (e) {
+        alert('Xəta: ' + e.message);
+      } finally {
+        btnSubmitWarning.disabled = false;
+        btnSubmitWarning.textContent = '🚀 Göndər';
+      }
+    });
+
+    // LOUNGE LOGO CUSTOMIZER & CONTROLS
+    btnUploadLoungeFile.addEventListener('click', () => {
+      loungeAvatarFileInput.click();
+    });
+
+    loungeAvatarFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      btnUploadLoungeFile.disabled = true;
+      btnUploadLoungeFile.textContent = 'Yüklənir...';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success && data.fileUrl) {
+          loungeAvatarImg.src = data.fileUrl;
+          loungeAvatarUrlInput.value = data.fileUrl;
+          // Auto save
+          await saveLoungeAvatar(data.fileUrl);
+        } else {
+          alert(data.error || 'Fayl yüklənmədi');
+        }
+      } catch (err) {
+        alert('Yükləmə xətası: ' + err.message);
+      } finally {
+        btnUploadLoungeFile.disabled = false;
+        btnUploadLoungeFile.textContent = '📁 Şəkil Seç';
+        loungeAvatarFileInput.value = '';
+      }
+    });
+
+    btnSaveLoungeAvatar.addEventListener('click', async () => {
+      const url = loungeAvatarUrlInput.value.trim();
+      if (!url) {
+        alert('Zəhmət olmasa loqo üçün şəkil seçin və ya URL daxil edin');
+        return;
+      }
+      await saveLoungeAvatar(url);
+    });
+
+    async function saveLoungeAvatar(avatarUrl) {
+      btnSaveLoungeAvatar.disabled = true;
+      btnSaveLoungeAvatar.textContent = 'Saxlanılır...';
+      try {
+        const res = await fetch('/api/admin/room/lounge-avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatar: avatarUrl })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loungeAvatarImg.src = avatarUrl;
+          alert('Moon Ümumi Söhbət loqosu uğurla yeniləndi və yadda saxlanıldı!');
+          loadStats();
+        } else {
+          alert(data.error || 'Yenilənmədi');
+        }
+      } catch (err) {
+        alert('Xəta: ' + err.message);
+      } finally {
+        btnSaveLoungeAvatar.disabled = false;
+        btnSaveLoungeAvatar.textContent = '💾 Loqonu Saxla';
+      }
+    }
+
+    btnClearLounge.addEventListener('click', async () => {
+      if (!confirm('Moon Ümumi Söhbətdəki BÜTÜN mesajlar silinəcək. Bu əməliyyat geri qaytarıla bilməz! Əminsiniz?')) return;
+      btnClearLounge.disabled = true;
+      btnClearLounge.textContent = 'Təmizlənir...';
+      try {
+        const res = await fetch('/api/admin/room/clear-lounge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Moon Ümumi Söhbət mesajları uğurla təmizləndi!');
+          loadStats();
+        } else {
+          alert(data.error || 'Təmizlənmədi');
+        }
+      } catch (err) {
+        alert('Xəta: ' + err.message);
+      } finally {
+        btnClearLounge.disabled = false;
+        btnClearLounge.textContent = '🧹 Söhbəti Təmizlə';
+      }
+    });
 
     window.toggleAdmin = async function(userId, newStatus) {
       try {
@@ -838,6 +1408,11 @@
       if (!text) return '';
       const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
       return String(text).replace(/[&<>"']/g, (m) => map[m]);
+    }
+
+    function escapeJs(text) {
+      if (!text) return '';
+      return String(text).replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
   </script>
 </body>
