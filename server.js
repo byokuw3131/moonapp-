@@ -121,6 +121,18 @@ app.post('/api/admin/user/toggle-verified', async (req, res) => {
   }
 });
 
+app.post('/api/admin/user/toggle-admin', async (req, res) => {
+  try {
+    const { userId, isAdmin } = req.body;
+    const user = await db.setUserAdmin(userId, isAdmin);
+    io.emit('user_admin_updated', { userId, isAdmin: user.is_admin });
+    io.emit('admin_data_changed');
+    res.json({ success: true, user });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/user/delete', async (req, res) => {
   try {
     const { userId } = req.body;

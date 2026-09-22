@@ -334,17 +334,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initEmojiPalette();
 
-  // Helper: Verified Tick Badge (Mavi Tik)
+  // Helper: Verified Blue Badge (Mavi Tik)
   function getVerifiedBadgeHtml(isVerified) {
     if (!isVerified) return '';
-    return `<span class="verified-tick-badge" title="Təsdiqlənmiş Hesab"><svg viewBox="0 0 24 24" fill="#00a884"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>`;
+    return `<img src="/verified.png" class="verified-tick-badge" alt="Təsdiqlənmiş" title="Təsdiqlənmiş Hesab">`;
+  }
+
+  // Helper: Admin Badge (👑 Admin)
+  function getAdminBadgeHtml(isAdmin) {
+    if (!isAdmin) return '';
+    return `<span class="admin-crown-badge" title="Rəsmi Admin">👑 Admin</span>`;
   }
 
   // Helper: Avatar Element Rendering
   function renderAvatar(avatar, container) {
     if (!container) return;
     container.innerHTML = '';
-    if (avatar && (avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('/uploads/'))) {
+    const isImagePath = avatar && (
+      avatar.startsWith('http://') || 
+      avatar.startsWith('https://') || 
+      avatar.startsWith('/uploads/') || 
+      avatar.startsWith('/logo.png') ||
+      avatar.startsWith('/') ||
+      /\.(png|jpe?g|gif|svg|webp)$/i.test(avatar)
+    );
+    if (isImagePath) {
       const img = document.createElement('img');
       img.src = avatar;
       img.alt = 'Avatar';
@@ -357,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '<img src="/logo.png" style="width:70%;height:70%;object-fit:contain;">';
       };
       container.appendChild(img);
-    } else if (avatar && avatar !== '🌙') {
+    } else if (avatar && avatar !== '🌙' && avatar !== '/logo.png') {
       container.textContent = avatar;
     } else {
       container.innerHTML = '<img src="/logo.png" style="width:70%;height:70%;object-fit:contain;">';
@@ -565,7 +579,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update My Profile UI
         renderAvatar(currentUser.avatar, myAvatarDisplay);
         if (myStoryAvatarDisplay) renderAvatar(currentUser.avatar, myStoryAvatarDisplay);
-        myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
+        myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}${getAdminBadgeHtml(currentUser.is_admin)}`;
+        if (currentUser.is_admin) {
+          myNicknameDisplay.classList.add('is-admin-name');
+        } else {
+          myNicknameDisplay.classList.remove('is-admin-name');
+        }
         myUsernameDisplay.textContent = `@${currentUser.username}`;
 
         // Load rooms
@@ -685,7 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div class="item-body">
           <div class="item-top-row">
-            <span class="item-name">${escapeHtml(room.display_name || room.name)}${isDirect ? getVerifiedBadgeHtml(room.other_user_verified) : ''}</span>
+            <span class="item-name ${isDirect && room.other_user_is_admin ? 'is-admin-name' : ''}">${escapeHtml(room.display_name || room.name)}${isDirect ? getVerifiedBadgeHtml(room.other_user_verified) + getAdminBadgeHtml(room.other_user_is_admin) : ''}</span>
             <span class="item-time">${timeStr}</span>
           </div>
           <div class="item-bottom-row">
@@ -1011,7 +1030,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAvatar(currentRoom.display_avatar || currentRoom.avatar, targetChatAvatar);
     
     const isDirect = currentRoom.type === 'direct';
-    targetChatName.innerHTML = `${escapeHtml(currentRoom.display_name || currentRoom.name)}${isDirect ? getVerifiedBadgeHtml(currentRoom.other_user_verified) : ''}`;
+    const isAdmin = isDirect && currentRoom.other_user_is_admin;
+    targetChatName.className = `chat-name ${isAdmin ? 'is-admin-name' : ''}`;
+    targetChatName.innerHTML = `${escapeHtml(currentRoom.display_name || currentRoom.name)}${isDirect ? getVerifiedBadgeHtml(currentRoom.other_user_verified) + getAdminBadgeHtml(currentRoom.other_user_is_admin) : ''}`;
 
     if (isDirect) {
       const isOnline = currentRoom.other_user_online === 1;
@@ -1148,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bubble Actions Button
     bubble.innerHTML = `
       <div class="bubble-inner">
-        ${!isMe && currentRoom && currentRoom.type === 'group' ? `<div class="bubble-sender-name">${escapeHtml(msg.sender_name)}${getVerifiedBadgeHtml(msg.sender_verified)}</div>` : ''}
+        ${!isMe && currentRoom && currentRoom.type === 'group' ? `<div class="bubble-sender-name ${msg.sender_is_admin ? 'is-admin-name' : ''}">${escapeHtml(msg.sender_name)}${getVerifiedBadgeHtml(msg.sender_verified)}${getAdminBadgeHtml(msg.sender_is_admin)}</div>` : ''}
         ${replySnippetHtml}
         ${contentHtml}
         <div class="msg-meta-row">
@@ -1940,7 +1961,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentUser && currentUser.id === userId) {
       currentUser.is_verified = isVerified;
       localStorage.setItem('moonapp_user', JSON.stringify(currentUser));
-      myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
+      myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}${getAdminBadgeHtml(currentUser.is_admin)}`;
     }
     // Update rooms list
     rooms.forEach((r) => {
@@ -1951,6 +1972,31 @@ document.addEventListener('DOMContentLoaded', () => {
     renderChatList();
     if (currentRoom && currentRoom.other_user_id === userId) {
       currentRoom.other_user_verified = isVerified;
+      updateChatHeader();
+    }
+  });
+
+  socket.on('user_admin_updated', ({ userId, isAdmin }) => {
+    // Update current user if it's me
+    if (currentUser && currentUser.id === userId) {
+      currentUser.is_admin = isAdmin;
+      localStorage.setItem('moonapp_user', JSON.stringify(currentUser));
+      myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}${getAdminBadgeHtml(currentUser.is_admin)}`;
+      if (currentUser.is_admin) {
+        myNicknameDisplay.classList.add('is-admin-name');
+      } else {
+        myNicknameDisplay.classList.remove('is-admin-name');
+      }
+    }
+    // Update rooms list
+    rooms.forEach((r) => {
+      if (r.other_user_id === userId) {
+        r.other_user_is_admin = isAdmin;
+      }
+    });
+    renderChatList();
+    if (currentRoom && currentRoom.other_user_id === userId) {
+      currentRoom.other_user_is_admin = isAdmin;
       updateChatHeader();
     }
   });
@@ -1995,6 +2041,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loadUsersList();
   });
 
+  const fabNewChat = document.getElementById('fabNewChat');
+  if (fabNewChat) {
+    fabNewChat.addEventListener('click', () => {
+      newChatModal.style.display = 'flex';
+      loadUsersList();
+    });
+  }
+
   btnCloseNewChat.addEventListener('click', () => {
     newChatModal.style.display = 'none';
   });
@@ -2031,7 +2085,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="avatar-box" id="u_avatar_${u.id}"></div>
         </div>
         <div class="user-row-info">
-          <span class="u-name">${escapeHtml(u.nickname || u.username)}${getVerifiedBadgeHtml(u.is_verified)}</span>
+          <span class="u-name ${u.is_admin ? 'is-admin-name' : ''}">${escapeHtml(u.nickname || u.username)}${getVerifiedBadgeHtml(u.is_verified)}${getAdminBadgeHtml(u.is_admin)}</span>
           <span class="u-sub">@${escapeHtml(u.username)} • ${u.online ? '<span style="color:#00a884;">🟢 onlayn</span>' : 'oflayn'}</span>
         </div>
       `;
@@ -2105,7 +2159,12 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('moonapp_user', JSON.stringify(currentUser));
         renderAvatar(currentUser.avatar, myAvatarDisplay);
         if (myStoryAvatarDisplay) renderAvatar(currentUser.avatar, myStoryAvatarDisplay);
-        myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}`;
+        myNicknameDisplay.innerHTML = `${escapeHtml(currentUser.nickname || currentUser.username)}${getVerifiedBadgeHtml(currentUser.is_verified)}${getAdminBadgeHtml(currentUser.is_admin)}`;
+        if (currentUser.is_admin) {
+          myNicknameDisplay.classList.add('is-admin-name');
+        } else {
+          myNicknameDisplay.classList.remove('is-admin-name');
+        }
         profileModal.style.display = 'none';
       }
     });

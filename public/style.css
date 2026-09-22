@@ -119,19 +119,24 @@ html, body {
 .action-btn, .header-icon-btn, .bar-icon-btn {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: #e9edef; /* Crisp, bright, highly prominent */
   cursor: pointer;
   padding: 8px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  transition: all 0.15s ease;
 }
 .action-btn:hover, .header-icon-btn:hover, .bar-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: scale(1.08);
 }
+.action-btn svg, .header-icon-btn svg, .bar-icon-btn svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
 
 /* SEARCH & PILLS */
 .search-section {
@@ -2629,5 +2634,85 @@ html, body {
   align-items: center;
   gap: 6px;
 }
+
+/* WhatsApp-style FAB New Chat Button */
+.whatsapp-fab-new-chat {
+  position: absolute;
+  bottom: 24px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: #00a884;
+  color: #111b21;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 168, 132, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s, box-shadow 0.2s;
+}
+.whatsapp-fab-new-chat:hover {
+  background: #02c39a;
+  transform: scale(1.08) translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 168, 132, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.whatsapp-fab-new-chat:active {
+  transform: scale(0.95);
+}
+
+/* Verified Blue Badge */
+.verified-tick-badge {
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  vertical-align: -2px;
+  margin-left: 4px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 4px rgba(0, 132, 255, 0.4));
+  flex-shrink: 0;
+}
+
+/* Admin Glowing Name & Crown Badge */
+.is-admin-name {
+  color: #ff334b !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 10px rgba(255, 51, 75, 0.6), 0 0 2px rgba(255, 255, 255, 0.4) !important;
+  letter-spacing: 0.2px;
+}
+.admin-crown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(135deg, #ff1a38 0%, #ff526b 100%);
+  color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  box-shadow: 0 0 10px rgba(255, 26, 56, 0.5);
+  vertical-align: 1px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Mobile Safe Areas and Viewport Enhancements */
+@media (max-width: 768px) {
+  .app-layout.chat-open .whatsapp-fab-new-chat {
+    display: none !important;
+  }
+  .whatsapp-fab-new-chat {
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    right: 18px;
+    width: 52px;
+    height: 52px;
+  }
+}
+
 
 

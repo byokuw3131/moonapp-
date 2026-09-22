@@ -249,6 +249,7 @@ async function initDatabase() {
   try { await run(`ALTER TABLE messages ADD COLUMN is_deleted_for_everyone INTEGER DEFAULT 0;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN pin_code TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0;`); } catch(e){}
+  try { await run(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;`); } catch(e){}
   try { await run(`ALTER TABLE rooms ADD COLUMN user1_id TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE rooms ADD COLUMN user2_id TEXT DEFAULT NULL;`); } catch(e){}
@@ -546,8 +547,9 @@ async function getUserRooms(userId, showHidden = false) {
         ELSE r.name
       END AS display_name,
       CASE 
+        WHEN r.id = 'moon_lounge' THEN '/logo.png'
         WHEN r.type = 'direct' THEN COALESCE(other_u.avatar, '/logo.png')
-        ELSE r.avatar
+        ELSE COALESCE(r.avatar, '/logo.png')
       END AS display_avatar,
       CASE 
         WHEN other_u.id = 'moonbot' THEN 1
@@ -556,6 +558,7 @@ async function getUserRooms(userId, showHidden = false) {
       END AS other_user_online,
       other_u.id AS other_user_id,
       COALESCE(other_u.is_verified, 0) AS other_user_verified,
+      COALESCE(other_u.is_admin, 0) AS other_user_is_admin,
       other_u.last_seen AS other_user_last_seen,
       (
         SELECT content FROM messages 
@@ -781,7 +784,7 @@ async function verifyUserPin(userId, inputPin) {
 // Get messages for a room with reaction data
 async function getRoomMessages(roomId, limit = 150, currentUserId = null) {
   let sql = `
-    SELECT m.*, u.is_verified AS sender_verified 
+    SELECT m.*, u.is_verified AS sender_verified, COALESCE(u.is_admin, 0) AS sender_is_admin
     FROM messages m 
     LEFT JOIN users u ON m.sender_id = u.id 
     WHERE m.room_id = ?
@@ -829,6 +832,12 @@ async function getRoomMemberIds(roomId) {
 // ADMIN PANEL HELPERS
 async function setUserVerified(userId, isVerified) {
   await run('UPDATE users SET is_verified = ? WHERE id = ?', [isVerified ? 1 : 0, userId]);
+  await syncUsersBackup();
+  return await getUser(userId);
+}
+
+async function setUserAdmin(userId, isAdmin) {
+  await run('UPDATE users SET is_admin = ? WHERE id = ?', [isAdmin ? 1 : 0, userId]);
   await syncUsersBackup();
   return await getUser(userId);
 }
@@ -905,6 +914,7 @@ async function getAllUsersForAdmin() {
   try {
     return await all(`
       SELECT u.id, u.username, u.nickname, u.avatar, u.online, u.last_seen, COALESCE(u.is_verified, 0) AS is_verified,
+             COALESCE(u.is_admin, 0) AS is_admin,
              COALESCE(u.created_at, CURRENT_TIMESTAMP) AS created_at,
              (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS message_count
       FROM users u
@@ -913,6 +923,7 @@ async function getAllUsersForAdmin() {
   } catch (err) {
     return await all(`
       SELECT u.id, u.username, u.nickname, u.avatar, u.online, u.last_seen, COALESCE(u.is_verified, 0) AS is_verified,
+             COALESCE(u.is_admin, 0) AS is_admin,
              CURRENT_TIMESTAMP AS created_at,
              (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS message_count
       FROM users u
@@ -1050,6 +1061,7 @@ module.exports = {
   hideUser,
   unhideUser,
   setUserVerified,
+  setUserAdmin,
   getSetting,
   setSetting,
   getAllSettings,

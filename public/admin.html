@@ -146,6 +146,42 @@
       color: var(--accent-blue);
       border: 1px solid rgba(0, 132, 255, 0.3);
     }
+    .admin-crown-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: linear-gradient(135deg, rgba(234, 67, 53, 0.25), rgba(255, 100, 100, 0.15));
+      color: #ff4d4d;
+      border: 1px solid rgba(234, 67, 53, 0.5);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 6px;
+      vertical-align: middle;
+      box-shadow: 0 0 10px rgba(234, 67, 53, 0.35);
+    }
+    .is-admin-name {
+      color: #ff3b30 !important;
+      font-weight: 700 !important;
+      text-shadow: 0 0 10px rgba(255, 59, 48, 0.4);
+    }
+    .btn-admin-active {
+      background: rgba(234, 67, 53, 0.2);
+      color: #ff4d4d;
+      border: 1px solid rgba(234, 67, 53, 0.4);
+    }
+    .btn-admin-active:hover {
+      background: #ea4335;
+      color: #fff;
+    }
+    .verified-blue-badge {
+      width: 17px;
+      height: 17px;
+      vertical-align: middle;
+      margin-left: 4px;
+      object-fit: contain;
+    }
 
     /* Dashboard Layout */
     .dashboard {
@@ -591,18 +627,24 @@
       users.forEach(u => {
         const tr = document.createElement('tr');
         const isVerified = u.is_verified === 1;
+        const isAdmin = u.is_admin === 1;
         const isOnline = u.online === 1;
 
-        let avatarHtml = u.avatar && (u.avatar.startsWith('http') || u.avatar.startsWith('/uploads/')) 
+        let avatarHtml = u.avatar && (u.avatar.startsWith('http') || u.avatar.startsWith('/uploads/') || u.avatar.startsWith('/logo.png')) 
           ? `<img src="${u.avatar}" alt="Avatar">` 
-          : (u.avatar || '👤');
+          : `<img src="/logo.png" style="width:70%;height:70%;object-fit:contain;">`;
+
+        const verifiedBadgeHtml = isVerified ? `<img src="/verified.png" class="verified-blue-badge" alt="Verified" title="Təsdiqlənmiş Hesab">` : '';
+        const adminBadgeHtml = isAdmin ? `<span class="admin-crown-badge">👑 Admin</span>` : '';
 
         tr.innerHTML = `
           <td>
             <div class="user-cell">
               <div class="avatar-sm">${avatarHtml}</div>
               <div>
-                <div class="user-meta-name">${escapeHtml(u.nickname || u.username)} ${isVerified ? checkmarkSvg : ''}</div>
+                <div class="user-meta-name ${isAdmin ? 'is-admin-name' : ''}">
+                  ${escapeHtml(u.nickname || u.username)} ${verifiedBadgeHtml} ${adminBadgeHtml}
+                </div>
                 <div class="user-meta-sub">@${escapeHtml(u.username)}</div>
               </div>
             </div>
@@ -618,7 +660,8 @@
             </span>
           </td>
           <td>
-            ${isVerified ? '<span style="color:#00a884; font-weight:600;">💎 Təsdiqlənib</span>' : '<span style="color:var(--text-muted)">Standart</span>'}
+            ${isVerified ? '<span style="color:#0084ff; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="/verified.png" style="width:16px;height:16px;"> Təsdiqlənib</span>' : '<span style="color:var(--text-muted)">Standart</span>'}
+            ${isAdmin ? '<div style="margin-top:4px;"><span style="color:#ff4d4d; font-size:12px; font-weight:700;">👑 İnzibatçı</span></div>' : ''}
           </td>
           <td style="color: var(--text-muted); font-size: 13px;">
             ${u.last_seen ? new Date(u.last_seen).toLocaleString('az-AZ') : '—'}
@@ -627,6 +670,9 @@
             <div class="actions-group">
               <button class="btn btn-sm ${isVerified ? 'btn-verify verified' : 'btn-verify'}" onclick="toggleVerified('${u.id}', ${isVerified ? 0 : 1})">
                 ${isVerified ? 'Mavi Tıki Ləğv Et' : '💎 Mavi Tik Ver'}
+              </button>
+              <button class="btn btn-sm ${isAdmin ? 'btn-admin-active' : 'btn-secondary'}" onclick="toggleAdmin('${u.id}', ${isAdmin ? 0 : 1})">
+                ${isAdmin ? '👑 Admini Ləğv Et' : '👑 Admin Təyin Et'}
               </button>
               <button class="btn btn-sm btn-danger" onclick="deleteUserAccount('${u.id}', '${escapeHtml(u.username)}')">
                 🗑️ Sil
@@ -637,6 +683,25 @@
         usersTableBody.appendChild(tr);
       });
     }
+
+    window.toggleAdmin = async function(userId, newStatus) {
+      try {
+        const res = await fetch('/api/admin/user/toggle-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, isAdmin: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadUsers();
+          loadStats();
+        } else {
+          alert(data.error || 'Əməliyyat baş tutmadı');
+        }
+      } catch (e) {
+        alert('Xəta: ' + e.message);
+      }
+    };
 
     window.toggleVerified = async function(userId, newStatus) {
       try {
