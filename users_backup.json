@@ -1,0 +1,26 @@
+[
+  {
+    "id": "user_1790018870877_uubug",
+    "username": "test_a",
+    "nickname": "Test A",
+    "avatar": "🌙",
+    "bio": "MoonApp istifadəçisi 🌙",
+    "online": 1,
+    "last_seen": 1790021736025,
+    "pin_code": "1234",
+    "created_at": "2026-09-21 19:27:50",
+    "is_verified": 0
+  },
+  {
+    "id": "user_1790018870886_v936c",
+    "username": "test_b",
+    "nickname": "Test B",
+    "avatar": "🌙",
+    "bio": "MoonApp istifadəçisi 🌙",
+    "online": 1,
+    "last_seen": 1790021736033,
+    "pin_code": "5678",
+    "created_at": "2026-09-21 19:27:50",
+    "is_verified": 0
+  }
+]

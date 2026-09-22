@@ -114,6 +114,7 @@ app.post('/api/admin/user/toggle-verified', async (req, res) => {
     const { userId, isVerified } = req.body;
     const user = await db.setUserVerified(userId, isVerified);
     io.emit('user_verified_updated', { userId, isVerified: user.is_verified });
+    io.emit('admin_data_changed');
     res.json({ success: true, user });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -142,6 +143,7 @@ app.post('/api/admin/user/delete', async (req, res) => {
     io.emit('user_deleted', { userId });
     io.emit('room_added');
     io.emit('update_room_preview');
+    io.emit('admin_data_changed');
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -167,6 +169,7 @@ app.post('/api/admin/broadcast', async (req, res) => {
     saved.reactions = [];
     io.to('moon_lounge').emit('new_message', saved);
     io.emit('direct_message_notify', { roomId: 'moon_lounge', message: saved });
+    io.emit('admin_data_changed');
     res.json({ success: true, message: saved });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -237,6 +240,7 @@ io.on('connection', (socket) => {
 
       // Broadcast user presence
       io.emit('user_presence', { userId: user.id, online: 1, lastSeen: Date.now() });
+      io.emit('admin_data_changed');
 
       if (callback) {
         callback({ success: true, user, rooms });
@@ -405,6 +409,8 @@ io.on('connection', (socket) => {
         console.error('Member notify error:', errMembers);
       }
 
+      io.emit('admin_data_changed');
+
       if (callback) callback({ success: true, message: savedMsg });
     } catch (err) {
       console.error('send_message error:', err);
@@ -420,6 +426,7 @@ io.on('connection', (socket) => {
       const updated = await db.updateUserProfile(userId, profileData);
       if (callback) callback({ success: true, user: updated });
       io.emit('user_updated', { user: updated });
+      io.emit('admin_data_changed');
     } catch (err) {
       if (callback) callback({ error: err.message });
     }
@@ -659,6 +666,7 @@ io.on('connection', (socket) => {
           userSockets.delete(userId);
           await db.setUserOnline(userId, false);
           io.emit('user_presence', { userId, online: 0, lastSeen: Date.now() });
+          io.emit('admin_data_changed');
         }
       }
       socketToUser.delete(socket.id);
@@ -666,6 +674,27 @@ io.on('connection', (socket) => {
     console.log(`[Socket] Disconnected: ${socket.id}`);
   });
 });
+
+// Render Free-tier Keep-Alive mechanism to prevent sleeping and disk resets
+function initKeepAlive() {
+  const externalUrl = process.env.RENDER_EXTERNAL_URL;
+  if (!externalUrl) return;
+
+  const pingUrl = externalUrl.endsWith('/') ? `${externalUrl}api/health` : `${externalUrl}/api/health`;
+  const https = require('https');
+  const http = require('http');
+  const client = pingUrl.startsWith('https') ? https : http;
+
+  console.log(`[Render Keep-Alive] Initialized for ${pingUrl}`);
+  // Ping every 9 minutes (Render sleeps after 15 minutes of inactivity)
+  setInterval(() => {
+    client.get(pingUrl, (res) => {
+      console.log(`[Render Keep-Alive] Ping ok, status: ${res.statusCode}`);
+    }).on('error', (err) => {
+      console.warn(`[Render Keep-Alive] Ping error: ${err.message}`);
+    });
+  }, 9 * 60 * 1000);
+}
 
 // Start Server
 const PORT = process.env.PORT || 3000;
@@ -681,6 +710,7 @@ async function start() {
   Ağ Adresi:   http://0.0.0.0:${PORT}
 ==================================================
       `);
+      initKeepAlive();
     });
   } catch (err) {
     console.error('Başlatma hatası:', err);

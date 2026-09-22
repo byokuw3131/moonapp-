@@ -33,6 +33,43 @@ function all(sql, params = []) {
   });
 }
 
+const backupPath = path.join(__dirname, 'users_backup.json');
+
+async function syncUsersBackup() {
+  try {
+    const users = await all(`SELECT * FROM users`);
+    if (users && users.length > 0) {
+      fs.writeFileSync(backupPath, JSON.stringify(users, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.error('[Backup] syncUsersBackup error:', err.message);
+  }
+}
+
+async function restoreUsersFromBackup() {
+  try {
+    if (!fs.existsSync(backupPath)) return;
+    const count = await get('SELECT COUNT(*) AS total FROM users');
+    if (count && count.total > 0) return; // Database already contains users
+
+    const raw = fs.readFileSync(backupPath, 'utf8');
+    const users = JSON.parse(raw);
+    if (!Array.isArray(users)) return;
+
+    for (const u of users) {
+      await run(
+        `INSERT OR IGNORE INTO users (id, username, nickname, avatar, bio, pin_code, online, last_seen, is_verified, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+        [u.id, u.username, u.nickname, u.avatar, u.bio, u.pin_code, u.last_seen, u.is_verified || 0, u.created_at || new Date().toISOString()]
+      );
+      await run(`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES ('moon_lounge', ?)`, [u.id]);
+    }
+    console.log(`[Backup] Successfully restored ${users.length} users from backup!`);
+  } catch (err) {
+    console.error('[Backup] restoreUsersFromBackup error:', err.message);
+  }
+}
+
 // Initialize tables
 async function initDatabase() {
   await run(`PRAGMA journal_mode = WAL;`);
@@ -117,8 +154,12 @@ async function initDatabase() {
   try { await run(`ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN pin_code TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0;`); } catch(e){}
+  try { await run(`ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;`); } catch(e){}
   try { await run(`ALTER TABLE rooms ADD COLUMN user1_id TEXT DEFAULT NULL;`); } catch(e){}
   try { await run(`ALTER TABLE rooms ADD COLUMN user2_id TEXT DEFAULT NULL;`); } catch(e){}
+
+  // Restore users from persistent backup if database was freshly created/wiped
+  await restoreUsersFromBackup();
 
   // Auto-repair any direct rooms so both users are always mapped and in room_members
   try {
@@ -199,6 +240,8 @@ async function initDatabase() {
   await run(`DELETE FROM rooms WHERE id LIKE '%moonbot%'`);
   await run(`DELETE FROM messages WHERE sender_id = 'moonbot' OR room_id LIKE '%moonbot%'`);
 
+  await syncUsersBackup();
+
   console.log('SQLite database initialized successfully.');
 }
 
@@ -236,6 +279,7 @@ async function upsertUser({ id, username, nickname, avatar, bio, pin_code }) {
       `INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES ('moon_lounge', ?)`,
       [existing.id]
     );
+    await syncUsersBackup();
     return await get('SELECT * FROM users WHERE id = ?', [existing.id]);
   } else {
     // New user registration requires at least 4 digit PIN
@@ -252,6 +296,7 @@ async function upsertUser({ id, username, nickname, avatar, bio, pin_code }) {
       `INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES ('moon_lounge', ?)`,
       [id]
     );
+    await syncUsersBackup();
     return await get('SELECT * FROM users WHERE id = ?', [id]);
   }
 }
@@ -265,6 +310,7 @@ async function updateUserProfile(id, { nickname, avatar, bio }) {
      WHERE id = ?`,
     [nickname, avatar, bio, id]
   );
+  await syncUsersBackup();
   return await get('SELECT * FROM users WHERE id = ?', [id]);
 }
 
@@ -677,6 +723,7 @@ async function getRoomMemberIds(roomId) {
 // ADMIN PANEL HELPERS
 async function setUserVerified(userId, isVerified) {
   await run('UPDATE users SET is_verified = ? WHERE id = ?', [isVerified ? 1 : 0, userId]);
+  await syncUsersBackup();
   return await getUser(userId);
 }
 
@@ -719,6 +766,7 @@ async function deleteUser(userId) {
   await run('DELETE FROM hidden_rooms WHERE user_id = ?', [userId]);
   // Finally delete user record
   await run('DELETE FROM users WHERE id = ?', [userId]);
+  await syncUsersBackup();
   return true;
 }
 
@@ -728,22 +776,43 @@ async function getAdminStats() {
   const onlineCount = await get('SELECT COUNT(*) AS total FROM users WHERE online = 1');
   const verifiedCount = await get('SELECT COUNT(*) AS total FROM users WHERE is_verified = 1');
   const roomsCount = await get('SELECT COUNT(*) AS total FROM rooms');
+  const uCount = usersCount ? usersCount.total : 0;
+  const mCount = messagesCount ? messagesCount.total : 0;
+  const oCount = onlineCount ? onlineCount.total : 0;
+  const vCount = verifiedCount ? verifiedCount.total : 0;
+  const rCount = roomsCount ? roomsCount.total : 0;
   return {
-    totalUsers: usersCount ? usersCount.total : 0,
-    totalMessages: messagesCount ? messagesCount.total : 0,
-    onlineUsers: onlineCount ? onlineCount.total : 0,
-    verifiedUsers: verifiedCount ? verifiedCount.total : 0,
-    totalRooms: roomsCount ? roomsCount.total : 0
+    totalUsers: uCount,
+    totalMessages: mCount,
+    onlineUsers: oCount,
+    verifiedUsers: vCount,
+    totalRooms: rCount,
+    total_users: uCount,
+    total_messages: mCount,
+    online_users: oCount,
+    verified_users: vCount,
+    total_rooms: rCount
   };
 }
 
 async function getAllUsersForAdmin() {
-  return await all(`
-    SELECT u.id, u.username, u.nickname, u.avatar, u.online, u.last_seen, u.is_verified, u.created_at,
-           (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS message_count
-    FROM users u
-    ORDER BY u.created_at DESC
-  `);
+  try {
+    return await all(`
+      SELECT u.id, u.username, u.nickname, u.avatar, u.online, u.last_seen, COALESCE(u.is_verified, 0) AS is_verified,
+             COALESCE(u.created_at, CURRENT_TIMESTAMP) AS created_at,
+             (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS message_count
+      FROM users u
+      ORDER BY u.created_at DESC
+    `);
+  } catch (err) {
+    return await all(`
+      SELECT u.id, u.username, u.nickname, u.avatar, u.online, u.last_seen, COALESCE(u.is_verified, 0) AS is_verified,
+             CURRENT_TIMESTAMP AS created_at,
+             (SELECT COUNT(*) FROM messages WHERE sender_id = u.id) AS message_count
+      FROM users u
+      ORDER BY u.online DESC, u.nickname ASC
+    `);
+  }
 }
 
 module.exports = {

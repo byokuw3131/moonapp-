@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
   <style>
     :root {
       --bg-dark: #0b141a;
@@ -436,6 +437,7 @@
               <tr>
                 <th>İstifadəçi</th>
                 <th>Status</th>
+                <th>Mesajlar</th>
                 <th>Mavi Tik</th>
                 <th>Son Görülmə</th>
                 <th>Əməliyyatlar</th>
@@ -443,7 +445,7 @@
             </thead>
             <tbody id="usersTableBody">
               <tr>
-                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">Yüklənir...</td>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Yüklənir...</td>
               </tr>
             </tbody>
           </table>
@@ -553,10 +555,10 @@
         const res = await fetch('/api/admin/stats');
         const data = await res.json();
         if (data.success && data.stats) {
-          document.getElementById('statUsers').textContent = data.stats.total_users || 0;
-          document.getElementById('statOnline').textContent = data.stats.online_users || 0;
-          document.getElementById('statMessages').textContent = data.stats.total_messages || 0;
-          document.getElementById('statVerified').textContent = data.stats.verified_users || 0;
+          document.getElementById('statUsers').textContent = data.stats.total_users ?? data.stats.totalUsers ?? 0;
+          document.getElementById('statOnline').textContent = data.stats.online_users ?? data.stats.onlineUsers ?? 0;
+          document.getElementById('statMessages').textContent = data.stats.total_messages ?? data.stats.totalMessages ?? 0;
+          document.getElementById('statVerified').textContent = data.stats.verified_users ?? data.stats.verifiedUsers ?? 0;
         }
       } catch (e) {
         console.error('Stats error:', e);
@@ -567,18 +569,21 @@
       try {
         const res = await fetch('/api/admin/users');
         const data = await res.json();
-        if (data.success && data.users) {
+        if (data.success && Array.isArray(data.users)) {
           renderUsers(data.users);
+        } else {
+          usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--accent-red)">İstifadəçiləri yükləmək mümkün olmadı: ${data.error || 'Naməlum xəta'}</td></tr>`;
         }
       } catch (e) {
         console.error('Users load error:', e);
+        usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--accent-red)">Bağlantı xətası: ${e.message}</td></tr>`;
       }
     }
 
     function renderUsers(users) {
       usersTableBody.innerHTML = '';
       if (!users || users.length === 0) {
-        usersTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted)">Qeydiyyatdan keçmiş istifadəçi yoxdur</td></tr>`;
+        usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted)">Qeydiyyatdan keçmiş istifadəçi yoxdur</td></tr>`;
         return;
       }
 
@@ -604,6 +609,11 @@
           <td>
             <span class="badge-tag ${isOnline ? 'badge-online' : 'badge-offline'}">
               ${isOnline ? '🟢 Onlayn' : 'Oflayn'}
+            </span>
+          </td>
+          <td>
+            <span class="badge-tag" style="background:#202c33; color:var(--text-main); font-weight:600;">
+              💬 ${u.message_count || 0}
             </span>
           </td>
           <td>
@@ -670,6 +680,31 @@
       loadUsers();
       loadStats();
     });
+
+    // Real-time live dashboard sync via Socket.IO
+    if (typeof io !== 'undefined') {
+      const socket = io();
+      socket.on('admin_data_changed', () => {
+        loadStats();
+        loadUsers();
+      });
+      socket.on('user_presence', () => {
+        loadStats();
+        loadUsers();
+      });
+      socket.on('new_message', () => {
+        loadStats();
+        loadUsers();
+      });
+      socket.on('user_deleted', () => {
+        loadStats();
+        loadUsers();
+      });
+      socket.on('user_verified_updated', () => {
+        loadStats();
+        loadUsers();
+      });
+    }
 
     // Broadcast Form
     broadcastForm.addEventListener('submit', async (e) => {
