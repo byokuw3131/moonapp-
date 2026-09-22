@@ -706,9 +706,39 @@ html, body {
 }
 
 .msg-text-content {
-  font-size: 14.5px;
+  font-size: 15px;
+  line-height: 21px;
   color: #e9edef;
   display: inline;
+  word-break: break-word;
+}
+.msg-text-content.emoji-single {
+  font-size: 48px !important;
+  line-height: 1.15 !important;
+  display: inline-block !important;
+  padding: 4px 2px;
+  vertical-align: middle;
+}
+.msg-text-content.emoji-double {
+  font-size: 38px !important;
+  line-height: 1.2 !important;
+  display: inline-block !important;
+  padding: 3px 2px;
+  vertical-align: middle;
+}
+.msg-text-content.emoji-triple {
+  font-size: 32px !important;
+  line-height: 1.2 !important;
+  display: inline-block !important;
+  padding: 2px 2px;
+  vertical-align: middle;
+}
+.msg-text-content.emoji-multi {
+  font-size: 26px !important;
+  line-height: 1.25 !important;
+  display: inline-block !important;
+  padding: 2px 2px;
+  vertical-align: middle;
 }
 
 /* MESSAGE IMAGE (PROPORTIONAL, MODERN WHATSAPP STYLE) */
@@ -930,22 +960,62 @@ html, body {
   width: 100%;
 }
 
-.voice-mic-btn {
+.send-action-btn {
   width: 44px;
   height: 44px;
+  min-width: 44px;
   border-radius: 50%;
-  background: var(--wa-green);
+  background: #00a884;
   border: none;
-  color: #111b21;
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.1s, background 0.1s;
+  box-shadow: 0 2px 10px rgba(0, 168, 132, 0.45);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s, box-shadow 0.15s;
+}
+.send-action-btn svg {
+  fill: #ffffff;
+  width: 20px;
+  height: 20px;
+  transform: translateX(1px);
+}
+.send-action-btn:hover {
+  background: #02c39a;
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(0, 168, 132, 0.65);
+}
+.send-action-btn:active {
+  transform: scale(0.92);
+}
+
+.voice-mic-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 50%;
+  background: #00a884;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 10px rgba(0, 168, 132, 0.45);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s, box-shadow 0.15s;
+}
+.voice-mic-btn svg {
+  fill: #ffffff;
+  width: 21px;
+  height: 21px;
 }
 .voice-mic-btn:hover {
-  background: var(--wa-green-hover);
+  background: #02c39a;
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(0, 168, 132, 0.65);
 }
 .voice-mic-btn:active {
   transform: scale(0.92);
@@ -2635,32 +2705,34 @@ html, body {
   gap: 6px;
 }
 
-/* WhatsApp-style FAB New Chat Button */
-.whatsapp-fab-new-chat {
-  position: absolute;
-  bottom: 24px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: #00a884;
-  color: #111b21;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 168, 132, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
-  z-index: 50;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s, box-shadow 0.2s;
+/* Green Top New Chat Button */
+.btn-green-top-new-chat {
+  background: #00a884 !important;
+  color: #111b21 !important;
+  border-radius: 50% !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 10px rgba(0, 168, 132, 0.5) !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
-.whatsapp-fab-new-chat:hover {
-  background: #02c39a;
-  transform: scale(1.08) translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 168, 132, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4);
+.btn-green-top-new-chat svg {
+  fill: #111b21 !important;
+  width: 20px !important;
+  height: 20px !important;
 }
-.whatsapp-fab-new-chat:active {
-  transform: scale(0.95);
+.btn-green-top-new-chat:hover {
+  background: #02c39a !important;
+  transform: scale(1.12) !important;
+  box-shadow: 0 4px 14px rgba(0, 168, 132, 0.7) !important;
+}
+.btn-green-top-new-chat:active {
+  transform: scale(0.92) !important;
 }
 
 /* Verified Blue Badge */
@@ -2699,19 +2771,6 @@ html, body {
   vertical-align: 1px;
   user-select: none;
   flex-shrink: 0;
-}
-
-/* Mobile Safe Areas and Viewport Enhancements */
-@media (max-width: 768px) {
-  .app-layout.chat-open .whatsapp-fab-new-chat {
-    display: none !important;
-  }
-  .whatsapp-fab-new-chat {
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    right: 18px;
-    width: 52px;
-    height: 52px;
-  }
 }
 
 

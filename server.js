@@ -72,11 +72,11 @@ app.get('/admin', (req, res) => {
 // Public Settings endpoint
 app.get('/api/settings', async (req, res) => {
   try {
-    const title = await db.getSetting('app_title', 'WhatsApp Web - MoonApp');
+    const title = await db.getSetting('app_title', 'Moon App');
     const banner = await db.getSetting('broadcast_banner', '');
     res.json({ app_title: title, broadcast_banner: banner });
   } catch (e) {
-    res.json({ app_title: 'WhatsApp Web - MoonApp', broadcast_banner: '' });
+    res.json({ app_title: 'Moon App', broadcast_banner: '' });
   }
 });
 
@@ -847,7 +847,7 @@ async function start() {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`
 ==================================================
-  🌙 MoonApp - WhatsApp Benzeri Web Sohbet
+  🌙 Moon App - Real-Time Web Chat
   Sunucu başarıyla başlatıldı!
   Yerel Adres: http://localhost:${PORT}
   Ağ Adresi:   http://0.0.0.0:${PORT}

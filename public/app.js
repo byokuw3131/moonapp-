@@ -1,5 +1,5 @@
-// MoonApp 2.0 - WhatsApp Web Client Controller
-// 100% Reliable Real-time Messaging & Modern WhatsApp Web Dark Aesthetics
+// Moon App 2.0 - Client Controller
+// 100% Reliable Real-time Messaging & Modern Dark Aesthetics
 
 document.addEventListener('DOMContentLoaded', () => {
   const socket = io();
@@ -346,6 +346,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<span class="admin-crown-badge" title="Rəsmi Admin">👑 Admin</span>`;
   }
 
+  // Helper: Detect emoji-only messages and return sizing class
+  function getEmojiOnlyClass(text) {
+    if (!text) return '';
+    const trimmed = text.trim();
+    const emojiRegex = /^(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uFE0F|\u200D|\s)+$/u;
+    if (!emojiRegex.test(trimmed)) return '';
+    try {
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        const segments = [...new Intl.Segmenter().segment(trimmed)].filter(s => s.segment.trim().length > 0);
+        if (segments.length === 1) return 'emoji-single';
+        if (segments.length === 2) return 'emoji-double';
+        if (segments.length === 3) return 'emoji-triple';
+        if (segments.length <= 6) return 'emoji-multi';
+      } else {
+        return 'emoji-single';
+      }
+    } catch (e) {
+      return 'emoji-single';
+    }
+    return '';
+  }
+
   // Helper: Avatar Element Rendering
   function renderAvatar(avatar, container) {
     if (!container) return;
@@ -634,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Render Sidebar Chat List with Pinned sorting & Authentic WhatsApp Dropdown Menu
+  // Render Sidebar Chat List with Pinned sorting & Context Menu
   function renderChatList() {
     chatList.innerHTML = '';
     const query = chatSearchInput.value.trim().toLowerCase();
@@ -724,7 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       renderAvatar(room.display_avatar || room.avatar, item.querySelector(`#avatar_${room.id}`));
 
-      // WhatsApp Web Context Menu Trigger
+      // Modern Chat Context Menu Trigger
       const chevronBtn = item.querySelector('.chat-item-actions-btn');
       if (chevronBtn) {
         chevronBtn.addEventListener('click', (e) => {
@@ -1150,7 +1172,11 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </a>`;
     } else {
-      contentHtml = `<div class="msg-text-content">${escapeHtml(msg.content)}</div>`;
+      const emojiClass = getEmojiOnlyClass(msg.content);
+      if (emojiClass && (emojiClass.includes('emoji-single') || emojiClass.includes('emoji-double'))) {
+        bubble.classList.add('is-emoji-only');
+      }
+      contentHtml = `<div class="msg-text-content ${emojiClass}">${escapeHtml(msg.content)}</div>`;
     }
 
     // Status Tick
@@ -2040,14 +2066,6 @@ document.addEventListener('DOMContentLoaded', () => {
     newChatModal.style.display = 'flex';
     loadUsersList();
   });
-
-  const fabNewChat = document.getElementById('fabNewChat');
-  if (fabNewChat) {
-    fabNewChat.addEventListener('click', () => {
-      newChatModal.style.display = 'flex';
-      loadUsersList();
-    });
-  }
 
   btnCloseNewChat.addEventListener('click', () => {
     newChatModal.style.display = 'none';

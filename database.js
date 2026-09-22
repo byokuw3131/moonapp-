@@ -286,7 +286,8 @@ async function initDatabase() {
       value TEXT
     )
   `);
-  await run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('app_title', 'WhatsApp Web - MoonApp')`);
+  await run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('app_title', 'Moon App')`);
+  await run(`UPDATE settings SET value = 'Moon App' WHERE key = 'app_title' AND value LIKE '%WhatsApp%'`);
   await run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_password', 'admin123')`);
   await run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('broadcast_banner', '')`);
 
